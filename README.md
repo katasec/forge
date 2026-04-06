@@ -12,46 +12,39 @@ go get github.com/katasec/forge
 
 ## Quick Start
 
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
 ```go
 package main
 
 import (
     "context"
-    "encoding/json"
     "fmt"
     "log"
+    "os"
 
     "github.com/katasec/forge"
 )
 
-// Define a tool input type — the JSON schema is derived automatically.
-type AddInput struct {
-    A int `json:"a" jsonschema:"description=First number"`
-    B int `json:"b" jsonschema:"description=Second number"`
-}
-
 func main() {
-    // Create a tool using the generic Func helper.
-    addTool := forge.Func[AddInput]("add", "Add two numbers", func(ctx context.Context, in AddInput) (string, error) {
-        result, _ := json.Marshal(in.A + in.B)
-        return string(result), nil
-    })
+    // Create a provider — see _examples/hello-world for full implementation.
+    provider := NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
 
     // Build the agent.
     agent, err := forge.NewAgent(forge.Config{
-        Provider:      myProvider,       // your Provider implementation
-        Tools:         []forge.Tool{addTool},
-        MaxIterations: 10,
-        ErrorPolicy:   forge.ErrorPolicyContinue,
+        Provider:     provider,
+        SystemPrompt: "You are a helpful assistant. Keep responses brief.",
     })
     if err != nil {
         log.Fatal(err)
     }
 
-    // Run the agent loop.
+    // Run it.
     resp, err := agent.Run(context.Background(), forge.AgentRequest{
         Messages: []forge.Message{
-            {Role: forge.RoleUser, Content: "What is 2 + 3?"},
+            {Role: forge.RoleUser, Content: "Hello! What are you?"},
         },
     })
     if err != nil {
@@ -59,9 +52,17 @@ func main() {
     }
 
     fmt.Println(resp.Messages[len(resp.Messages)-1].Content)
-    fmt.Printf("Tokens: %d in, %d out\n", resp.Usage.InputTokens, resp.Usage.OutputTokens)
 }
 ```
+
+Swap to xAI Grok by changing one line:
+
+```go
+// provider := NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
+provider := NewOpenAIProvider("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
+```
+
+The `OpenAIProvider` works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.). See [`_examples/hello-world`](./_examples/hello-world) for the full runnable code.
 
 ## Core Concepts
 
@@ -198,7 +199,8 @@ if meta, ok := forge.MetadataFromContext(ctx); ok {
 
 See the [`_examples`](./_examples) directory for runnable demos:
 
-- **[calculator](./_examples/calculator)** — Simple agent with math tools and a mock provider
+- **[hello-world](./_examples/hello-world)** — Simplest possible example: call Claude or xAI with one flag swap
+- **[calculator](./_examples/calculator)** — Agent with math tools, middleware, and a mock provider
 
 ## License
 
