@@ -21,6 +21,8 @@ import (
 	"os"
 
 	"github.com/katasec/forge"
+	"github.com/katasec/forge/provider/anthropic"
+	"github.com/katasec/forge/provider/openai"
 )
 
 func main() {
@@ -35,13 +37,13 @@ func main() {
 		if key == "" {
 			log.Fatal("Set ANTHROPIC_API_KEY environment variable")
 		}
-		provider = NewAnthropicProvider(key, "claude-sonnet-4-20250514")
+		provider = anthropic.New(key, "claude-sonnet-4-20250514")
 	case "xai":
 		key := os.Getenv("XAI_API_KEY")
 		if key == "" {
 			log.Fatal("Set XAI_API_KEY environment variable")
 		}
-		provider = NewOpenAIProvider("https://api.x.ai/v1", key, "grok-3-mini")
+		provider = openai.New("https://api.x.ai/v1", key, "grok-3-mini")
 	default:
 		log.Fatalf("Unknown provider: %s (use 'anthropic' or 'xai')", *providerFlag)
 	}

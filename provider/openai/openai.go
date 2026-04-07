@@ -1,4 +1,7 @@
-package main
+// Package openai implements forge.Provider using the OpenAI-compatible chat
+// completions API. Works with OpenAI, xAI (Grok), Together, Groq, and any
+// other provider that speaks the OpenAI format.
+package openai
 
 import (
 	"bytes"
@@ -11,18 +14,17 @@ import (
 	"github.com/katasec/forge"
 )
 
-// OpenAIProvider implements forge.Provider using the OpenAI-compatible API.
-// Works with xAI (Grok), OpenAI, Together, Groq, and any other provider
-// that speaks the OpenAI chat completions format.
-type OpenAIProvider struct {
+// Provider implements forge.Provider using the OpenAI-compatible API.
+type Provider struct {
 	baseURL string
 	apiKey  string
 	model   string
 	client  *http.Client
 }
 
-func NewOpenAIProvider(baseURL, apiKey, model string) *OpenAIProvider {
-	return &OpenAIProvider{
+// New creates an OpenAI-compatible provider for the given base URL, API key, and model.
+func New(baseURL, apiKey, model string) *Provider {
+	return &Provider{
 		baseURL: baseURL,
 		apiKey:  apiKey,
 		model:   model,
@@ -32,48 +34,49 @@ func NewOpenAIProvider(baseURL, apiKey, model string) *OpenAIProvider {
 
 // --- OpenAI API request/response types ---
 
-type openaiRequest struct {
-	Model    string          `json:"model"`
-	Messages []openaiMessage `json:"messages"`
+type request struct {
+	Model    string    `json:"model"`
+	Messages []message `json:"messages"`
 }
 
-type openaiMessage struct {
+type message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type openaiResponse struct {
-	Choices []openaiChoice `json:"choices"`
-	Usage   openaiUsage    `json:"usage"`
+type response struct {
+	Choices []choice `json:"choices"`
+	Usage   usage    `json:"usage"`
 }
 
-type openaiChoice struct {
-	Message      openaiMessage `json:"message"`
-	FinishReason string        `json:"finish_reason"`
+type choice struct {
+	Message      message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
 }
 
-type openaiUsage struct {
+type usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 }
 
-func (p *OpenAIProvider) Generate(ctx context.Context, req forge.ProviderRequest) (*forge.ProviderResponse, error) {
+// Generate sends a request to the OpenAI-compatible chat completions endpoint.
+func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*forge.ProviderResponse, error) {
 	// Convert forge messages to OpenAI format.
-	var msgs []openaiMessage
+	var msgs []message
 	if req.SystemPrompt != "" {
-		msgs = append(msgs, openaiMessage{Role: "system", Content: req.SystemPrompt})
+		msgs = append(msgs, message{Role: "system", Content: req.SystemPrompt})
 	}
 	for _, m := range req.Messages {
 		if m.Role == forge.RoleSystem {
 			continue
 		}
-		msgs = append(msgs, openaiMessage{
+		msgs = append(msgs, message{
 			Role:    string(m.Role),
 			Content: m.Content,
 		})
 	}
 
-	body := openaiRequest{
+	body := request{
 		Model:    p.model,
 		Messages: msgs,
 	}
@@ -106,7 +109,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req forge.ProviderRequest
 		return nil, fmt.Errorf("API error (%d): %s", httpResp.StatusCode, string(respBody))
 	}
 
-	var apiResp openaiResponse
+	var apiResp response
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
@@ -115,17 +118,17 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req forge.ProviderRequest
 		return nil, fmt.Errorf("no choices in response")
 	}
 
-	choice := apiResp.Choices[0]
+	ch := apiResp.Choices[0]
 
 	finishReason := forge.FinishReasonStop
-	if choice.FinishReason == "tool_calls" {
+	if ch.FinishReason == "tool_calls" {
 		finishReason = forge.FinishReasonToolUse
 	}
 
 	return &forge.ProviderResponse{
 		Message: forge.Message{
 			Role:    forge.RoleAssistant,
-			Content: choice.Message.Content,
+			Content: ch.Message.Content,
 		},
 		FinishReason: finishReason,
 		Usage: forge.TokenUsage{

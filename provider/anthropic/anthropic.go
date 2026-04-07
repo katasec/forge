@@ -1,4 +1,5 @@
-package main
+// Package anthropic implements forge.Provider using the Anthropic Messages API.
+package anthropic
 
 import (
 	"bytes"
@@ -11,15 +12,16 @@ import (
 	"github.com/katasec/forge"
 )
 
-// AnthropicProvider implements forge.Provider using the Anthropic Messages API.
-type AnthropicProvider struct {
+// Provider implements forge.Provider using the Anthropic Messages API.
+type Provider struct {
 	apiKey string
 	model  string
 	client *http.Client
 }
 
-func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
-	return &AnthropicProvider{
+// New creates an Anthropic provider for the given API key and model.
+func New(apiKey, model string) *Provider {
+	return &Provider{
 		apiKey: apiKey,
 		model:  model,
 		client: &http.Client{},
@@ -28,48 +30,49 @@ func NewAnthropicProvider(apiKey, model string) *AnthropicProvider {
 
 // --- Anthropic API request/response types ---
 
-type anthropicRequest struct {
-	Model     string             `json:"model"`
-	MaxTokens int                `json:"max_tokens"`
-	System    string             `json:"system,omitempty"`
-	Messages  []anthropicMessage `json:"messages"`
+type request struct {
+	Model     string    `json:"model"`
+	MaxTokens int       `json:"max_tokens"`
+	System    string    `json:"system,omitempty"`
+	Messages  []message `json:"messages"`
 }
 
-type anthropicMessage struct {
+type message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-type anthropicResponse struct {
-	Content    []anthropicContent `json:"content"`
-	StopReason string             `json:"stop_reason"`
-	Usage      anthropicUsage     `json:"usage"`
+type response struct {
+	Content    []content `json:"content"`
+	StopReason string    `json:"stop_reason"`
+	Usage      usage     `json:"usage"`
 }
 
-type anthropicContent struct {
+type content struct {
 	Type string `json:"type"`
 	Text string `json:"text"`
 }
 
-type anthropicUsage struct {
+type usage struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
 }
 
-func (p *AnthropicProvider) Generate(ctx context.Context, req forge.ProviderRequest) (*forge.ProviderResponse, error) {
+// Generate sends a request to the Anthropic Messages API.
+func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*forge.ProviderResponse, error) {
 	// Convert forge messages to Anthropic format.
-	var msgs []anthropicMessage
+	var msgs []message
 	for _, m := range req.Messages {
 		if m.Role == forge.RoleSystem {
 			continue // system prompt handled separately
 		}
-		msgs = append(msgs, anthropicMessage{
+		msgs = append(msgs, message{
 			Role:    string(m.Role),
 			Content: m.Content,
 		})
 	}
 
-	body := anthropicRequest{
+	body := request{
 		Model:     p.model,
 		MaxTokens: 1024,
 		System:    req.SystemPrompt,
@@ -104,16 +107,16 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req forge.ProviderRequ
 		return nil, fmt.Errorf("anthropic API error (%d): %s", httpResp.StatusCode, string(respBody))
 	}
 
-	var apiResp anthropicResponse
+	var apiResp response
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	// Extract text content.
-	var content string
+	var textContent string
 	for _, c := range apiResp.Content {
 		if c.Type == "text" {
-			content = c.Text
+			textContent = c.Text
 			break
 		}
 	}
@@ -126,7 +129,7 @@ func (p *AnthropicProvider) Generate(ctx context.Context, req forge.ProviderRequ
 	return &forge.ProviderResponse{
 		Message: forge.Message{
 			Role:    forge.RoleAssistant,
-			Content: content,
+			Content: textContent,
 		},
 		FinishReason: finishReason,
 		Usage: forge.TokenUsage{
