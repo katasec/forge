@@ -10,7 +10,23 @@ module github.com/katasec/forge
 go 1.23
 ```
 
-Single flat package: `package forge`. No sub-packages.
+Root package: `package forge` — all interfaces, core types, and default implementations.
+
+Sub-packages hold swappable backend implementations (following the `database/sql` pattern):
+
+```
+forge/                          root — interfaces, types, Agent, Config, defaults
+forge/provider/anthropic/       Anthropic Messages API provider
+forge/provider/openai/          OpenAI-compatible provider (OpenAI, xAI, Together, Groq)
+```
+
+Future sub-packages (created when implementations exist, not preemptively):
+
+```
+forge/memory/sqlite/            SQLite-backed MemoryStore
+forge/memory/redis/             Redis-backed MemoryStore
+forge/executor/concurrent/      Parallel tool executor
+```
 
 ---
 

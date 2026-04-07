@@ -8,6 +8,8 @@ Forge handles the **LLM call → tool execution → response** cycle. You supply
 
 ```bash
 go get github.com/katasec/forge
+go get github.com/katasec/forge/provider/anthropic  # optional
+go get github.com/katasec/forge/provider/openai      # optional
 ```
 
 ## Quick Start
@@ -26,13 +28,12 @@ import (
     "os"
 
     "github.com/katasec/forge"
+    "github.com/katasec/forge/provider/anthropic"
 )
 
 func main() {
-    // Create a provider — see _examples/hello-world for full implementation.
-    provider := NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
+    provider := anthropic.New(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
 
-    // Build the agent.
     agent, err := forge.NewAgent(forge.Config{
         Provider:     provider,
         SystemPrompt: "You are a helpful assistant. Keep responses brief.",
@@ -41,7 +42,6 @@ func main() {
         log.Fatal(err)
     }
 
-    // Run it.
     resp, err := agent.Run(context.Background(), forge.AgentRequest{
         Messages: []forge.Message{
             {Role: forge.RoleUser, Content: "Hello! What are you?"},
@@ -55,20 +55,21 @@ func main() {
 }
 ```
 
-Swap to xAI Grok by changing one line:
+Swap to xAI Grok by changing one import:
 
 ```go
-// provider := NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
-provider := NewOpenAIProvider("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
+import "github.com/katasec/forge/provider/openai"
+
+provider := openai.New("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
 ```
 
-The `OpenAIProvider` works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.). See [`_examples/hello-world`](./_examples/hello-world) for the full runnable code.
+The `openai` package works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.). See [`_examples/hello-world`](./_examples/hello-world) for the full runnable code.
 
 ## Core Concepts
 
 ### Provider
 
-The `Provider` interface makes a single LLM call. Forge doesn't ship providers — you implement one for your LLM of choice:
+The `Provider` interface makes a single LLM call. Forge ships with two built-in providers, or you can implement your own:
 
 ```go
 type Provider interface {
