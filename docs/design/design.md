@@ -18,6 +18,7 @@ Sub-packages hold swappable backend implementations (following the `database/sql
 forge/                          root — interfaces, types, Agent, Config, defaults
 forge/provider/anthropic/       Anthropic Messages API provider
 forge/provider/openai/          OpenAI-compatible provider (OpenAI, xAI, Together, Groq)
+forge/provider/xai/             xAI Responses API provider (web search, X search, citations)
 ```
 
 Future sub-packages (created when implementations exist, not preemptively):

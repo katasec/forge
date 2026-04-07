@@ -10,6 +10,7 @@ Forge handles the **LLM call → tool execution → response** cycle. You supply
 go get github.com/katasec/forge
 go get github.com/katasec/forge/provider/anthropic  # optional
 go get github.com/katasec/forge/provider/openai      # optional
+go get github.com/katasec/forge/provider/xai         # optional — xAI Responses API with web search
 ```
 
 ## Quick Start
@@ -63,13 +64,29 @@ import "github.com/katasec/forge/provider/openai"
 provider := openai.New("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
 ```
 
-The `openai` package works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.). See [`_examples/hello-world`](./_examples/hello-world) for the full runnable code.
+The `openai` package works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.).
+
+Or use the xAI Responses API with built-in web search:
+
+```go
+import "github.com/katasec/forge/provider/xai"
+
+provider := xai.New(os.Getenv("XAI_API_KEY"), "grok-4-1-fast-non-reasoning", xai.WithWebSearch())
+
+// After running the agent, access citations:
+citations := provider.LastCitations()
+for _, c := range citations {
+    fmt.Printf("[%s] %s\n", c.Title, c.URL)
+}
+```
+
+See [`_examples/hello-world`](./_examples/hello-world) for the full runnable code.
 
 ## Core Concepts
 
 ### Provider
 
-The `Provider` interface makes a single LLM call. Forge ships with two built-in providers, or you can implement your own:
+The `Provider` interface makes a single LLM call. Forge ships with three built-in providers, or you can implement your own:
 
 ```go
 type Provider interface {
