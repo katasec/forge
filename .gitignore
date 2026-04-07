@@ -8,6 +8,10 @@
 *.so
 *.dylib
 
+# Example binaries
+_examples/calculator/calculator
+_examples/hello-world/hello-world
+
 # Test binary, built with `go test -c`
 *.test
 
