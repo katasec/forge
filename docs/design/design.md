@@ -10,15 +10,25 @@ module github.com/katasec/forge
 go 1.23
 ```
 
-Root package: `package forge` — all interfaces, core types, and default implementations.
+Root package: `package forge` — the primary user-facing facade: `Config`, `Agent`, `Ask`, `AskIn`, core interfaces, and type aliases for common concepts.
 
-Sub-packages hold swappable backend implementations (following the `database/sql` pattern):
+Sub-packages hold focused concepts and swappable implementations. The root package re-exports the common API so developers can start with `forge.Config` and only import subpackages when they opt into a specific implementation:
 
 ```
-forge/                          root — interfaces, types, Agent, Config, defaults
+forge/                          root facade: Agent, Config, common aliases, default helpers
+forge/message/                  message and role types
+forge/tool/                     tool interface, typed Func helper, calls, results
+forge/tool/registry/            tool registry implementation
+forge/provider/                 provider interface, requests, responses, usage, finish reasons
 forge/provider/anthropic/       Anthropic Messages API provider
 forge/provider/openai/          OpenAI-compatible provider (OpenAI, xAI, Together, Groq)
 forge/provider/xai/             xAI Responses API provider (web search, X search, citations)
+forge/memory/                   memory store interface
+forge/memory/inmem/             in-memory memory store
+forge/executor/                 tool executor interface
+forge/executor/sequential/      sequential tool executor
+forge/middleware/               provider middleware types
+forge/metadata/                 context metadata helpers
 ```
 
 Future sub-packages (created when implementations exist, not preemptively):
@@ -27,6 +37,8 @@ Future sub-packages (created when implementations exist, not preemptively):
 forge/memory/sqlite/            SQLite-backed MemoryStore
 forge/memory/redis/             Redis-backed MemoryStore
 forge/executor/concurrent/      Parallel tool executor
+forge/middleware/logging/       Logging middleware
+forge/middleware/retry/         Retry middleware
 ```
 
 ## Code Style & API Philosophy
@@ -37,11 +49,11 @@ Top-level functions should read like intent. Complex behavior should be composed
 
 The public API should make the common path obvious before exposing the lower-level machinery. Developers should be able to start with `Ask(ctx, prompt)`, use `AskIn(ctx, conversationID, prompt)` when they need named conversations, and drop to `Run(ctx, AgentRequest{...})` only when they need full control over roles, message history, or advanced orchestration.
 
-Package layout should follow the same rule as the code. The root package may remain a friendly facade, but implementation-heavy defaults should move toward focused packages as the library grows: agent orchestration, messages, tools, providers, memory, executors, and metadata.
+Package layout follows the same rule as the code. The root package remains a friendly facade, while focused packages organize agent concepts: messages, tools, providers, memory, executors, middleware, and metadata. Developers configure an agent runtime once, then interact with it through `Ask`, `AskIn`, or `Run`.
 
 ---
 
-## 1. Core Types (`types.go`)
+## 1. Core Types (`message`, `tool`, `provider`; re-exported by root)
 
 ### Role
 
@@ -174,7 +186,7 @@ func MetadataFromContext(ctx context.Context) (Metadata, bool)
 
 ---
 
-## 3. Tool System (`tool.go`, `registry.go`)
+## 3. Tool System (`tool`, `tool/registry`; re-exported by root)
 
 ### Tool Interface
 
@@ -234,10 +246,11 @@ func (r *ToolRegistry) Definitions() []ToolDefinition
 - `Register` adds tools. Duplicate names overwrite silently (last-write-wins).
 - `Get` returns a tool by name.
 - `Definitions` returns all registered tools as `ToolDefinition` for passing to a provider.
+- The concrete implementation lives in `tool/registry`; root re-exports `ToolRegistry` and `NewToolRegistry` for the common path.
 
 ---
 
-## 4. Executor (`executor.go`)
+## 4. Executor (`executor`, `executor/sequential`; re-exported by root)
 
 ```go
 type ToolExecutor interface {
@@ -262,7 +275,7 @@ func (e *SequentialExecutor) Execute(ctx context.Context, calls []ToolCall) []To
 
 ---
 
-## 5. Memory (`memory.go`)
+## 5. Memory (`memory`, `memory/inmem`; re-exported by root)
 
 ```go
 type MemoryStore interface {
@@ -280,10 +293,12 @@ func NewInMemoryStore() *InMemoryStore
 - `Save` replaces the entire message history for that conversation ID.
 - `Clear` deletes the conversation.
 - `InMemoryStore` is safe for concurrent use.
+- The `MemoryStore` contract lives in `memory`; the default implementation lives in `memory/inmem`.
+- Root re-exports `MemoryStore`, `InMemoryStore`, and `NewInMemoryStore` to preserve the simple `forge.Config` experience.
 
 ---
 
-## 6. Provider & Middleware (`provider.go`, `middleware.go`)
+## 6. Provider & Middleware (`provider`, `middleware`; re-exported by root)
 
 ### Provider
 
@@ -308,6 +323,7 @@ type Provider interface {
 - `Generate` makes a single LLM call. It does **not** loop.
 - The provider is responsible for translating `ProviderRequest` into the LLM's native API format and back.
 - A provider error (non-nil error return) always terminates the agent loop.
+- The provider contract lives in `provider`; root re-exports `Provider`, `ProviderRequest`, and `ProviderResponse`.
 
 ### Middleware
 
@@ -335,6 +351,8 @@ for i := len(middlewares) - 1; i >= 0; i-- {
 ```
 
 Use cases: logging, token counting, rate limiting, retry, prompt injection.
+
+The middleware contract lives in `middleware`; root re-exports `RunFunc` and `Middleware`.
 
 ---
 

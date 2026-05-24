@@ -213,6 +213,17 @@ type MemoryStore interface {
 }
 ```
 
+Or opt into a supplied memory implementation explicitly:
+
+```go
+import "github.com/katasec/forge/memory/inmem"
+
+agent, _ := forge.NewAgent(forge.Config{
+    Provider: myProvider,
+    Memory:   inmem.New(),
+})
+```
+
 ### Metadata
 
 Attach arbitrary key-value data to the context, accessible by tools and middleware:
