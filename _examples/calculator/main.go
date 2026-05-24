@@ -1,4 +1,4 @@
-// Calculator example — demonstrates forge with math tools and a mock provider.
+// Calculator demonstrates forge with math tools and a mock provider.
 //
 // This uses a mock provider that simulates an LLM deciding to call tools.
 // Replace MockProvider with a real provider (Anthropic, OpenAI, etc.) to
@@ -103,7 +103,7 @@ func main() {
 		}
 	})
 
-	// Build the agent.
+	// Build the agent runtime once: provider, tools, middleware, and loop policy.
 	agent, err := forge.NewAgent(forge.Config{
 		Provider:      &MockProvider{},
 		Tools:         []forge.Tool{addTool, mulTool},
@@ -116,7 +116,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Run the agent.
+	// Ask drives the full provider -> tool -> provider loop.
 	fmt.Println("User: What is 12 + 30?")
 	fmt.Println(strings.Repeat("-", 40))
 

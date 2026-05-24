@@ -10,4 +10,3 @@
 | Persistent memory stores | SQLite, Redis, or file-backed `MemoryStore` implementations |
 | Structured output | Response format constraints passed to providers |
 | Token budget management | Auto-truncate or summarize history when approaching limits |
-| Agent-to-agent delegation | One agent invoking another as a tool |

@@ -2,7 +2,7 @@
 
 A provider-agnostic Go library for building AI agent loops with pluggable tools, memory, and middleware.
 
-Forge handles the **LLM call → tool execution → response** cycle. You supply a provider (Anthropic, OpenAI, etc.), register tools, and forge runs the loop — including error handling, iteration limits, and conversation memory.
+Forge handles the **LLM call -> tool execution -> response** cycle. You supply a provider (Anthropic, OpenAI, etc.), register tools, and forge runs the loop, including error handling, iteration limits, and conversation memory.
 
 ## Install
 
@@ -10,7 +10,7 @@ Forge handles the **LLM call → tool execution → response** cycle. You supply
 go get github.com/katasec/forge
 go get github.com/katasec/forge/provider/anthropic  # optional
 go get github.com/katasec/forge/provider/openai      # optional
-go get github.com/katasec/forge/provider/xai         # optional — xAI Responses API with web search
+go get github.com/katasec/forge/provider/xai         # optional: xAI Responses API with web search
 ```
 
 ## Quick Start
@@ -92,7 +92,7 @@ type Provider interface {
 
 ### Tools
 
-Define tools with `Func[T]` — the JSON schema for parameters is derived from the Go struct at construction time using [invopop/jsonschema](https://github.com/invopop/jsonschema):
+Define tools with `Func[T]`. The JSON schema for parameters is derived from the Go struct at construction time using [invopop/jsonschema](https://github.com/invopop/jsonschema):
 
 ```go
 type SearchInput struct {
@@ -123,9 +123,9 @@ type Tool interface {
 
 1. Load conversation history from memory
 2. Call the provider with messages + tool definitions
-3. If the provider says **stop** → return the response
-4. If the provider requests **tool use** → execute tools, feed results back, go to 2
-5. If **iteration limit** hit → return with `FinishReasonIterLimit`
+3. If the provider says **stop**, return the response
+4. If the provider requests **tool use**, execute tools, feed results back, go to 2
+5. If **iteration limit** hit, return with `FinishReasonIterLimit`
 6. Save conversation to memory
 
 For the common case, use `Ask`:
@@ -147,8 +147,8 @@ Use `Run` when you need full control over message roles, multiple messages, or a
 
 Controls what happens when a tool returns an error:
 
-- `ErrorPolicyStop` (default) — terminate the loop immediately
-- `ErrorPolicyContinue` — feed the error back to the LLM so it can adapt
+- `ErrorPolicyStop` (default): terminate the loop immediately
+- `ErrorPolicyContinue`: feed the error back to the LLM so it can adapt
 
 ### Middleware
 
@@ -172,7 +172,7 @@ agent, _ := forge.NewAgent(forge.Config{
 })
 ```
 
-Middleware composes as decorators: given `[A, B, C]`, request flows `A → B → C → provider → C → B → A`.
+Middleware composes as decorators: given `[A, B, C]`, request flows `A -> B -> C -> provider -> C -> B -> A`.
 
 ### Memory
 
@@ -243,8 +243,9 @@ if meta, ok := forge.MetadataFromContext(ctx); ok {
 
 See the [`_examples`](./_examples) directory for runnable demos:
 
-- **[hello-world](./_examples/hello-world)** — Simplest possible example: call Claude or xAI with one flag swap
-- **[calculator](./_examples/calculator)** — Agent with math tools, middleware, and a mock provider
+- **[hello-world](./_examples/hello-world)**: simplest possible example: call Claude or xAI with one flag swap
+- **[calculator](./_examples/calculator)**: agent with math tools, middleware, and a mock provider
+- **[chat-console](./_examples/chat-console)**: interactive console app showing `forge.Config`, explicit memory, `Ask`, and `LastText`
 
 ## License
 

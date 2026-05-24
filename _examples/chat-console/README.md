@@ -3,6 +3,7 @@
 An interactive console app that shows the intended forge developer experience:
 
 - configure an agent once with `forge.Config`
+- plug in an explicit memory implementation with `memory/inmem`
 - talk to it with `Ask`
 - read the latest answer with `LastText`
 - keep conversation context in memory across turns

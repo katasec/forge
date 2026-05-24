@@ -33,7 +33,7 @@ func (r *AgentResponse) LastText() string {
 	return ""
 }
 
-// Agent orchestrates the LLM call → tool execution → response loop.
+// Agent orchestrates the LLM call -> tool execution -> response loop.
 type Agent struct {
 	provider              Provider
 	registry              *ToolRegistry
@@ -156,7 +156,7 @@ func (a *Agent) Run(ctx context.Context, req AgentRequest) (*AgentResponse, erro
 			break
 		}
 
-		// FinishReason is tool_use — execute the tool calls.
+		// FinishReason is tool_use - execute the tool calls.
 		toolResults := a.executor.Execute(ctx, resp.Message.ToolCalls)
 
 		// Check for tool errors.

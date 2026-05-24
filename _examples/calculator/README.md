@@ -1,6 +1,6 @@
 # Calculator
 
-Demonstrates tool use with a mock provider — no API key needed.
+Demonstrates tool use with a mock provider. No API key needed.
 
 ## Run
 
@@ -31,6 +31,8 @@ Everything is in `main.go`:
 - **Tools**: `add` and `multiply` using `forge.Func[T]` with typed inputs
 - **Mock provider**: Simulates an LLM that decides to call the `add` tool, then formulates a response from the result
 - **Logging middleware**: Prints each provider call and its finish reason
-- **Agent loop**: Shows the full cycle — provider call → tool execution → provider call → stop
+- **Agent setup**: Uses `forge.Config` to wire provider, tools, middleware, and loop policy
+- **Agent loop**: Shows the full cycle: provider call, tool execution, provider call, stop
+- **Common API**: Uses `agent.Ask` and `resp.LastText` rather than manual message wiring
 
 This example is useful for understanding how the agent loop works without needing API credentials.

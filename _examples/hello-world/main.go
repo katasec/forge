@@ -1,4 +1,4 @@
-// Hello World — the simplest possible forge example.
+// Hello World is the simplest possible forge example.
 //
 // Shows how to call Claude with your Anthropic API key, and how to
 // swap to xAI's Grok by changing one line.
@@ -8,7 +8,7 @@
 //	export ANTHROPIC_API_KEY=sk-ant-...
 //	go run .
 //
-//	# Or use xAI (OpenAI-compatible) instead:
+//	# Or use xAI's OpenAI-compatible endpoint instead:
 //	export XAI_API_KEY=xai-...
 //	go run . -provider xai
 //
@@ -34,7 +34,7 @@ func main() {
 	providerFlag := flag.String("provider", "anthropic", "Provider to use: anthropic, xai, or xai-search")
 	flag.Parse()
 
-	// Pick your provider — this is the only thing that changes.
+	// Pick your provider. The agent setup below stays the same.
 	var provider forge.Provider
 	var xaiProvider *xai.Provider // for citation access
 	switch *providerFlag {
@@ -61,7 +61,7 @@ func main() {
 		log.Fatalf("Unknown provider: %s (use 'anthropic', 'xai', or 'xai-search')", *providerFlag)
 	}
 
-	// Build the agent — same code regardless of provider.
+	// Build the agent: provider, prompt, and runtime behavior live in Config.
 	agent, err := forge.NewAgent(forge.Config{
 		Provider:     provider,
 		SystemPrompt: "You are a helpful assistant. Keep responses brief.",
@@ -70,7 +70,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Ask preserves conversation history on this agent by default.
+	// Ask is the common path: user text in, AgentResponse out.
 	resp, err := agent.Ask(context.Background(), "Hello! What are you?")
 	if err != nil {
 		log.Fatal(err)
@@ -79,12 +79,12 @@ func main() {
 	fmt.Println(resp.LastText())
 	fmt.Printf("\n[%s | tokens: %d in, %d out]\n", *providerFlag, resp.Usage.InputTokens, resp.Usage.OutputTokens)
 
-	// Show citations if using xai-search.
+	// xAI search exposes provider-specific citations after the run.
 	if xaiProvider != nil {
 		if citations := xaiProvider.LastCitations(); len(citations) > 0 {
 			fmt.Println("\nSources:")
 			for i, c := range citations {
-				fmt.Printf("  [%d] %s — %s\n", i+1, c.Title, c.URL)
+				fmt.Printf("  [%d] %s - %s\n", i+1, c.Title, c.URL)
 			}
 		}
 	}
