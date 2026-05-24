@@ -30,6 +30,26 @@ func (m *mockProvider) Generate(_ context.Context, _ ProviderRequest) (*Provider
 	}, nil
 }
 
+// recordingProvider stores provider requests so tests can inspect conversation history.
+type recordingProvider struct {
+	responses []*ProviderResponse
+	requests  []ProviderRequest
+	calls     int
+}
+
+func (r *recordingProvider) Generate(_ context.Context, req ProviderRequest) (*ProviderResponse, error) {
+	r.requests = append(r.requests, req)
+	i := r.calls
+	r.calls++
+	if i < len(r.responses) {
+		return r.responses[i], nil
+	}
+	return &ProviderResponse{
+		Message:      Message{Role: RoleAssistant, Content: "default"},
+		FinishReason: FinishReasonStop,
+	}, nil
+}
+
 func TestNewAgentNilProvider(t *testing.T) {
 	_, err := NewAgent(Config{})
 	if err == nil {
@@ -46,6 +66,130 @@ func TestNewAgentDefaultErrorPolicy(t *testing.T) {
 	}
 	if agent.errorPolicy != ErrorPolicyStop {
 		t.Errorf("errorPolicy = %q, want %q", agent.errorPolicy, ErrorPolicyStop)
+	}
+}
+
+func TestNewAgentDefaultsToInMemoryStore(t *testing.T) {
+	agent, err := NewAgent(Config{
+		Provider: &mockProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewAgent error: %v", err)
+	}
+	if agent.memory == nil {
+		t.Fatal("expected default memory store")
+	}
+	if _, ok := agent.memory.(*InMemoryStore); !ok {
+		t.Fatalf("memory = %T, want *InMemoryStore", agent.memory)
+	}
+}
+
+func TestNewAgentDisableMemory(t *testing.T) {
+	agent, err := NewAgent(Config{
+		Provider:      &mockProvider{},
+		DisableMemory: true,
+	})
+	if err != nil {
+		t.Fatalf("NewAgent error: %v", err)
+	}
+	if agent.memory != nil {
+		t.Fatalf("memory = %T, want nil", agent.memory)
+	}
+}
+
+func TestAgentAskPreservesDefaultConversation(t *testing.T) {
+	provider := &recordingProvider{
+		responses: []*ProviderResponse{
+			{
+				Message:      Message{Role: RoleAssistant, Content: "hello"},
+				FinishReason: FinishReasonStop,
+			},
+			{
+				Message:      Message{Role: RoleAssistant, Content: "I remember"},
+				FinishReason: FinishReasonStop,
+			},
+		},
+	}
+
+	agent, err := NewAgent(Config{Provider: provider})
+	if err != nil {
+		t.Fatalf("NewAgent error: %v", err)
+	}
+
+	first, err := agent.Ask(context.Background(), "My name is Ameer.")
+	if err != nil {
+		t.Fatalf("Ask first error: %v", err)
+	}
+	second, err := agent.Ask(context.Background(), "What is my name?")
+	if err != nil {
+		t.Fatalf("Ask second error: %v", err)
+	}
+
+	if first.ConversationID == "" {
+		t.Fatal("expected first response to include conversation ID")
+	}
+	if second.ConversationID != first.ConversationID {
+		t.Fatalf("conversation ID = %q, want %q", second.ConversationID, first.ConversationID)
+	}
+	if len(provider.requests) != 2 {
+		t.Fatalf("provider requests = %d, want 2", len(provider.requests))
+	}
+	if len(provider.requests[1].Messages) != 3 {
+		t.Fatalf("second request messages = %d, want 3", len(provider.requests[1].Messages))
+	}
+	if provider.requests[1].Messages[0].Content != "My name is Ameer." {
+		t.Errorf("first remembered message = %q", provider.requests[1].Messages[0].Content)
+	}
+}
+
+func TestAgentAskInUsesNamedConversations(t *testing.T) {
+	provider := &recordingProvider{
+		responses: []*ProviderResponse{
+			{Message: Message{Role: RoleAssistant, Content: "forge noted"}, FinishReason: FinishReasonStop},
+			{Message: Message{Role: RoleAssistant, Content: "other noted"}, FinishReason: FinishReasonStop},
+			{Message: Message{Role: RoleAssistant, Content: "forge remembered"}, FinishReason: FinishReasonStop},
+		},
+	}
+
+	agent, err := NewAgent(Config{Provider: provider})
+	if err != nil {
+		t.Fatalf("NewAgent error: %v", err)
+	}
+
+	if _, err := agent.AskIn(context.Background(), "forge", "Remember forge."); err != nil {
+		t.Fatalf("AskIn forge error: %v", err)
+	}
+	if _, err := agent.AskIn(context.Background(), "other", "Remember other."); err != nil {
+		t.Fatalf("AskIn other error: %v", err)
+	}
+	resp, err := agent.AskIn(context.Background(), "forge", "What did I ask you to remember?")
+	if err != nil {
+		t.Fatalf("AskIn forge follow-up error: %v", err)
+	}
+
+	if resp.ConversationID != "forge" {
+		t.Fatalf("conversation ID = %q, want forge", resp.ConversationID)
+	}
+	if len(provider.requests[2].Messages) != 3 {
+		t.Fatalf("forge follow-up messages = %d, want 3", len(provider.requests[2].Messages))
+	}
+	if provider.requests[2].Messages[0].Content != "Remember forge." {
+		t.Errorf("first forge message = %q", provider.requests[2].Messages[0].Content)
+	}
+}
+
+func TestAgentResponseLastText(t *testing.T) {
+	resp := &AgentResponse{
+		Messages: []Message{
+			UserMessage("hello"),
+			{Role: RoleAssistant, Content: "first"},
+			{Role: RoleTool, ToolResults: []ToolResult{{Content: "tool result"}}},
+			{Role: RoleAssistant, Content: "latest"},
+		},
+	}
+
+	if got := resp.LastText(); got != "latest" {
+		t.Fatalf("LastText() = %q, want latest", got)
 	}
 }
 

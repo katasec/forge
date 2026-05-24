@@ -107,7 +107,7 @@ func main() {
 	agent, err := forge.NewAgent(forge.Config{
 		Provider:      &MockProvider{},
 		Tools:         []forge.Tool{addTool, mulTool},
-		Middleware:     []forge.Middleware{logging},
+		Middleware:    []forge.Middleware{logging},
 		SystemPrompt:  "You are a helpful calculator assistant.",
 		MaxIterations: 5,
 		ErrorPolicy:   forge.ErrorPolicyContinue,
@@ -120,17 +120,13 @@ func main() {
 	fmt.Println("User: What is 12 + 30?")
 	fmt.Println(strings.Repeat("-", 40))
 
-	resp, err := agent.Run(context.Background(), forge.AgentRequest{
-		Messages: []forge.Message{
-			{Role: forge.RoleUser, Content: "What is 12 + 30?"},
-		},
-	})
+	resp, err := agent.Ask(context.Background(), "What is 12 + 30?")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Println(strings.Repeat("-", 40))
-	fmt.Printf("Assistant: %s\n", resp.Messages[len(resp.Messages)-1].Content)
+	fmt.Printf("Assistant: %s\n", resp.LastText())
 	fmt.Printf("Finish reason: %s\n", resp.FinishReason)
 	fmt.Printf("Tokens: %d in, %d out\n", resp.Usage.InputTokens, resp.Usage.OutputTokens)
 	fmt.Printf("Conversation: %d messages\n", len(resp.Messages))

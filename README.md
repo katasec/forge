@@ -43,16 +43,12 @@ func main() {
         log.Fatal(err)
     }
 
-    resp, err := agent.Run(context.Background(), forge.AgentRequest{
-        Messages: []forge.Message{
-            {Role: forge.RoleUser, Content: "Hello! What are you?"},
-        },
-    })
+    resp, err := agent.Ask(context.Background(), "Hello! What are you?")
     if err != nil {
         log.Fatal(err)
     }
 
-    fmt.Println(resp.Messages[len(resp.Messages)-1].Content)
+    fmt.Println(resp.LastText())
 }
 ```
 
@@ -125,12 +121,27 @@ type Tool interface {
 
 `Agent.Run` executes this loop:
 
-1. Load conversation history from memory (if configured)
+1. Load conversation history from memory
 2. Call the provider with messages + tool definitions
 3. If the provider says **stop** → return the response
 4. If the provider requests **tool use** → execute tools, feed results back, go to 2
 5. If **iteration limit** hit → return with `FinishReasonIterLimit`
 6. Save conversation to memory
+
+For the common case, use `Ask`:
+
+```go
+resp, err := agent.Ask(ctx, "Hello")
+fmt.Println(resp.LastText())
+```
+
+Use `AskIn` when you want to manage multiple named conversations:
+
+```go
+resp, err := agent.AskIn(ctx, "support-ticket-123", "What happened last?")
+```
+
+Use `Run` when you need full control over message roles, multiple messages, or advanced conversation wiring.
 
 ### Error Policy
 
@@ -165,26 +176,30 @@ Middleware composes as decorators: given `[A, B, C]`, request flows `A → B →
 
 ### Memory
 
-Persist conversations across `Agent.Run` calls:
+Forge uses in-memory conversation history by default. Repeated `Ask` calls on the same agent continue the same default conversation:
 
 ```go
-store := forge.NewInMemoryStore()
-
 agent, _ := forge.NewAgent(forge.Config{
     Provider: myProvider,
-    Memory:   store,
 })
 
-// First call — starts a conversation.
-resp, _ := agent.Run(ctx, forge.AgentRequest{
-    ConversationID: "conv-1",
-    Messages:       []forge.Message{{Role: forge.RoleUser, Content: "Hi"}},
-})
+resp, _ := agent.Ask(ctx, "My name is Ameer.")
+resp, _ = agent.Ask(ctx, "What is my name?")
+```
 
-// Second call — continues the same conversation.
-resp, _ = agent.Run(ctx, forge.AgentRequest{
-    ConversationID: "conv-1",
-    Messages:       []forge.Message{{Role: forge.RoleUser, Content: "What did I just say?"}},
+For named conversations:
+
+```go
+resp, _ := agent.AskIn(ctx, "conv-1", "Hi")
+resp, _ = agent.AskIn(ctx, "conv-1", "What did I just say?")
+```
+
+Disable memory explicitly for stateless agents:
+
+```go
+agent, _ := forge.NewAgent(forge.Config{
+    Provider:      myProvider,
+    DisableMemory: true,
 })
 ```
 

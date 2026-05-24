@@ -29,6 +29,16 @@ forge/memory/redis/             Redis-backed MemoryStore
 forge/executor/concurrent/      Parallel tool executor
 ```
 
+## Code Style & API Philosophy
+
+Forge uses progressive disclosure in both code and public API design.
+
+Top-level functions should read like intent. Complex behavior should be composed from small, named, single-responsibility helpers so a reader can understand what happens first, then drill into how each step works.
+
+The public API should make the common path obvious before exposing the lower-level machinery. Developers should be able to start with `Ask(ctx, prompt)`, use `AskIn(ctx, conversationID, prompt)` when they need named conversations, and drop to `Run(ctx, AgentRequest{...})` only when they need full control over roles, message history, or advanced orchestration.
+
+Package layout should follow the same rule as the code. The root package may remain a friendly facade, but implementation-heavy defaults should move toward focused packages as the library grows: agent orchestration, messages, tools, providers, memory, executors, and metadata.
+
 ---
 
 ## 1. Core Types (`types.go`)
@@ -56,11 +66,14 @@ type Message struct {
     ToolCalls []ToolCall   `json:"tool_calls,omitempty"`
     ToolResults []ToolResult `json:"tool_results,omitempty"`
 }
+
+func UserMessage(content string) Message
 ```
 
 - `ID` is assigned by the caller or generated (UUID) when empty.
 - `ToolCalls` is populated only on assistant messages when the LLM requests tool use.
 - `ToolResults` is populated only on tool-role messages returning results.
+- `UserMessage` is the preferred helper for creating a single user prompt when using the lower-level `Run` API.
 
 ### ToolCall & ToolResult
 
@@ -334,7 +347,8 @@ type Config struct {
     Provider      Provider
     Tools         []Tool
     Middleware    []Middleware
-    Memory        MemoryStore    // optional, nil means no persistence
+    Memory        MemoryStore    // optional, defaults to in-memory unless DisableMemory is true
+    DisableMemory bool           // optional, true means no conversation persistence
     SystemPrompt  string         // optional
     MaxIterations int            // 0 means no limit
     ErrorPolicy   ErrorPolicy    // defaults to ErrorPolicyStop
@@ -354,7 +368,9 @@ func NewAgent(cfg Config) (*Agent, error)
 - Builds a `ToolRegistry` from `cfg.Tools`.
 - Creates a `SequentialExecutor` with the registry.
 - Applies `cfg.Middleware` to build the composed `RunFunc`.
+- Defaults `Memory` to `NewInMemoryStore()` when `cfg.Memory` is nil and `cfg.DisableMemory` is false.
 - Defaults `ErrorPolicy` to `ErrorPolicyStop` if empty.
+- Creates a default conversation ID used by `Ask`.
 
 ### AgentRequest & AgentResponse
 
@@ -371,7 +387,21 @@ type AgentResponse struct {
     Usage          TokenUsage   `json:"usage"`
     Errors         []ToolError  `json:"errors,omitempty"`
 }
+
+func (r *AgentResponse) LastText() string
 ```
+
+### Convenience API
+
+```go
+func (a *Agent) Ask(ctx context.Context, prompt string) (*AgentResponse, error)
+func (a *Agent) AskIn(ctx context.Context, conversationID, prompt string) (*AgentResponse, error)
+```
+
+- `Ask` sends a user prompt to the agent's default conversation.
+- `AskIn` sends a user prompt to a named conversation.
+- Both return the full `AgentResponse`, preserving access to conversation ID, token usage, finish reason, errors, and message history.
+- `LastText` returns the latest assistant text content in the response.
 
 ### Agent Loop — `Agent.Run(ctx, req)`
 
@@ -451,7 +481,8 @@ Pseudocode:
 - Tool errors with `ErrorPolicyContinue` are collected in `errors` but the loop continues, letting the LLM see the error and adapt.
 - Tool errors with `ErrorPolicyStop` break the loop immediately but still include the tool results in the message history.
 - `FinishReasonToolUse` never appears in the final `AgentResponse` — the loop always processes tool calls.
-- Memory is saved once at the end, with the complete conversation.
+- Memory is enabled by default with an in-memory store. It is saved once at the end, with the complete conversation.
+- File-backed or database-backed memory must be explicitly configured because persistence changes privacy and lifecycle expectations.
 - Context cancellation is respected: `composedRunFunc` and `tool.Invoke` should check `ctx`.
 
 ---
