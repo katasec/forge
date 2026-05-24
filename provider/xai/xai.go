@@ -293,7 +293,7 @@ func parseResponse(resp *response) (*forge.ProviderResponse, []Citation) {
 				}
 			}
 			// Server-side tool calls (web_search_call, x_search_call, etc.)
-			// are auto-executed by xAI — we don't surface them.
+			// are auto-executed by xAI, so we don't surface them.
 		}
 	}
 

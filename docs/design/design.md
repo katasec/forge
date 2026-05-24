@@ -1,4 +1,4 @@
-# Forge — Type Specification & Design
+# Forge - Type Specification & Design
 
 > This is the authoritative specification for the forge Go agent framework.
 > All implementation should conform to this document.
@@ -7,7 +7,7 @@
 
 ```
 module github.com/katasec/forge
-go 1.23
+go 1.25.6
 ```
 
 Root package: `package forge` — the primary user-facing facade: `Config`, `Agent`, `Ask`, `AskIn`, core interfaces, and type aliases for common concepts.
@@ -121,10 +121,10 @@ const (
 ```
 
 **Semantics:**
-- `stop` — the provider returned a response with no tool calls. The agent loop terminates normally.
-- `tool_use` — the provider requested tool calls. The loop continues to execute them. This value appears in `ProviderResponse` but never as a final `AgentResponse.FinishReason` (the loop always processes tool calls before returning).
-- `iter_limit` — the loop hit `Config.MaxIterations`. The agent returns whatever content the last assistant message contained.
-- `error` — a provider error occurred, or a tool error occurred with `ErrorPolicyStop`.
+- `stop` - the provider returned a response with no tool calls. The agent loop terminates normally.
+- `tool_use` - the provider requested tool calls. The loop continues to execute them. This value appears in `ProviderResponse` but never as a final `AgentResponse.FinishReason` (the loop always processes tool calls before returning).
+- `iter_limit` - the loop hit `Config.MaxIterations`. The agent returns whatever content the last assistant message contained.
+- `error` - a provider error occurred, or a tool error occurred with `ErrorPolicyStop`.
 
 ### TokenUsage
 
@@ -149,8 +149,8 @@ const (
 ```
 
 Controls behavior when a tool invocation returns an error (`ToolResult.IsError == true`):
-- `stop` — the agent loop terminates immediately with `FinishReasonError`.
-- `continue` — the error is fed back to the LLM as a tool result so it can recover or try a different approach.
+- `stop` - the agent loop terminates immediately with `FinishReasonError`.
+- `continue` - the error is fed back to the LLM as a tool result so it can recover or try a different approach.
 
 ### ToolError
 
@@ -180,9 +180,9 @@ func WithMetadata(ctx context.Context, m Metadata) context.Context
 func MetadataFromContext(ctx context.Context) (Metadata, bool)
 ```
 
-- `WithMetadata` stores a `Metadata` in the context using the unexported `metadataKey`.
+- `WithMetadata` stores a `Metadata` in the context using the unexported metadata key.
 - `MetadataFromContext` retrieves it; returns `false` if not present.
-- `Metadata.Values` is never nil after construction — `WithMetadata` should initialize the map if nil.
+- `Metadata.Values` is never nil after construction. `WithMetadata` should initialize the map if nil.
 
 ---
 
@@ -338,7 +338,7 @@ Middleware wraps `RunFunc` in the standard decorator pattern.
 **Composition order:** middlewares are applied innermost-last. Given `[A, B, C]`:
 
 ```
-request → A → B → C → provider.Generate → C → B → A → response
+request -> A -> B -> C -> provider.Generate -> C -> B -> A -> response
 ```
 
 Applied as:
@@ -421,7 +421,7 @@ func (a *Agent) AskIn(ctx context.Context, conversationID, prompt string) (*Agen
 - Both return the full `AgentResponse`, preserving access to conversation ID, token usage, finish reason, errors, and message history.
 - `LastText` returns the latest assistant text content in the response.
 
-### Agent Loop — `Agent.Run(ctx, req)`
+### Agent Loop - `Agent.Run(ctx, req)`
 
 ```
 func (a *Agent) Run(ctx context.Context, req AgentRequest) (*AgentResponse, error)
@@ -463,7 +463,7 @@ Pseudocode:
 31.         finishReason = FinishReasonStop
 32.         break LOOP
 33.
-34.     // FinishReason is tool_use — execute the tool calls
+34.     // FinishReason is tool_use - execute the tool calls
 35.     toolResults = executor.Execute(ctx, providerResp.Message.ToolCalls)
 36.
 37.     // Check for tool errors
@@ -495,10 +495,10 @@ Pseudocode:
 ```
 
 **Key behaviors:**
-- Provider errors (line 23) are always fatal — they return an error, not an `AgentResponse`.
+- Provider errors (line 23) are always fatal. They return an error, not an `AgentResponse`.
 - Tool errors with `ErrorPolicyContinue` are collected in `errors` but the loop continues, letting the LLM see the error and adapt.
 - Tool errors with `ErrorPolicyStop` break the loop immediately but still include the tool results in the message history.
-- `FinishReasonToolUse` never appears in the final `AgentResponse` — the loop always processes tool calls.
+- `FinishReasonToolUse` never appears in the final `AgentResponse`. The loop always processes tool calls.
 - Memory is enabled by default with an in-memory store. It is saved once at the end, with the complete conversation.
 - File-backed or database-backed memory must be explicitly configured because persistence changes privacy and lifecycle expectations.
 - Context cancellation is respected: `composedRunFunc` and `tool.Invoke` should check `ctx`.
@@ -515,4 +515,3 @@ Tracked separately in `docs/design/future-refinements.md`. Not in scope for the 
 - Persistent memory stores (SQLite, Redis)
 - Structured output / response format constraints
 - Token budget management (auto-truncate history)
-- Agent-to-agent delegation

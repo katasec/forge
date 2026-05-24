@@ -1,42 +1,32 @@
 # Hello World
 
-The simplest possible forge example — call an LLM and get a response.
+The smallest forge example: pick a provider, build an agent with `forge.Config`, ask one question, and print the latest assistant text.
 
-## Run with Claude (Anthropic)
+## Run with Claude
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 go run .
 ```
 
-## Run with Grok (xAI)
+## Run with Grok
 
 ```bash
 export XAI_API_KEY=xai-...
 go run . -provider xai
 ```
 
-## What's in here
+## Run with xAI Search
 
-| File | What it does |
-|------|-------------|
-| `main.go` | Picks a provider, builds an agent, sends "Hello!", prints the response |
-| `anthropic.go` | `AnthropicProvider` — implements `forge.Provider` using the Anthropic Messages API |
-| `openai_compat.go` | `OpenAIProvider` — implements `forge.Provider` for any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.) |
-
-## Swapping providers
-
-The only thing that changes is one line:
-
-```go
-// Claude
-provider := NewAnthropicProvider(os.Getenv("ANTHROPIC_API_KEY"), "claude-sonnet-4-20250514")
-
-// xAI Grok
-provider := NewOpenAIProvider("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
-
-// OpenAI
-provider := NewOpenAIProvider("https://api.openai.com/v1", os.Getenv("OPENAI_API_KEY"), "gpt-4o")
+```bash
+export XAI_API_KEY=xai-...
+go run . -provider xai-search
 ```
 
-Everything else — agent config, tools, middleware, memory — stays the same regardless of provider.
+## What this shows
+
+- `forge.Config` as the agent setup point
+- provider swapping without changing app code
+- `agent.Ask(ctx, prompt)` for the common path
+- `resp.LastText()` for the latest assistant answer
+- provider-specific access to xAI citations when search is enabled
