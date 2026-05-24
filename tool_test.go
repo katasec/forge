@@ -83,6 +83,16 @@ func TestFuncInvokeInvalidArgs(t *testing.T) {
 	}
 }
 
+func TestUserMessage(t *testing.T) {
+	msg := UserMessage("hello")
+	if msg.Role != RoleUser {
+		t.Fatalf("Role = %q, want %q", msg.Role, RoleUser)
+	}
+	if msg.Content != "hello" {
+		t.Fatalf("Content = %q, want hello", msg.Content)
+	}
+}
+
 func TestRegistryRegisterAndGet(t *testing.T) {
 	r := NewToolRegistry()
 	tool := Func[addInput]("add", "adds", func(_ context.Context, in addInput) (string, error) {

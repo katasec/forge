@@ -22,16 +22,28 @@ type AgentResponse struct {
 	Errors         []ToolError  `json:"errors,omitempty"`
 }
 
+// LastText returns the latest assistant text in the response.
+func (r *AgentResponse) LastText() string {
+	for i := len(r.Messages) - 1; i >= 0; i-- {
+		msg := r.Messages[i]
+		if msg.Role == RoleAssistant && msg.Content != "" {
+			return msg.Content
+		}
+	}
+	return ""
+}
+
 // Agent orchestrates the LLM call → tool execution → response loop.
 type Agent struct {
-	provider      Provider
-	registry      *ToolRegistry
-	executor      ToolExecutor
-	run           RunFunc
-	memory        MemoryStore
-	systemPrompt  string
-	maxIterations int
-	errorPolicy   ErrorPolicy
+	provider              Provider
+	registry              *ToolRegistry
+	executor              ToolExecutor
+	run                   RunFunc
+	memory                MemoryStore
+	defaultConversationID string
+	systemPrompt          string
+	maxIterations         int
+	errorPolicy           ErrorPolicy
 }
 
 // NewAgent creates an Agent from the given Config.
@@ -58,16 +70,35 @@ func NewAgent(cfg Config) (*Agent, error) {
 		errorPolicy = ErrorPolicyStop
 	}
 
+	memory := cfg.Memory
+	if memory == nil && !cfg.DisableMemory {
+		memory = NewInMemoryStore()
+	}
+
 	return &Agent{
-		provider:      cfg.Provider,
-		registry:      registry,
-		executor:      executor,
-		run:           run,
-		memory:        cfg.Memory,
-		systemPrompt:  cfg.SystemPrompt,
-		maxIterations: cfg.MaxIterations,
-		errorPolicy:   errorPolicy,
+		provider:              cfg.Provider,
+		registry:              registry,
+		executor:              executor,
+		run:                   run,
+		memory:                memory,
+		defaultConversationID: uuid.New().String(),
+		systemPrompt:          cfg.SystemPrompt,
+		maxIterations:         cfg.MaxIterations,
+		errorPolicy:           errorPolicy,
 	}, nil
+}
+
+// Ask sends a user prompt in the agent's default conversation.
+func (a *Agent) Ask(ctx context.Context, prompt string) (*AgentResponse, error) {
+	return a.AskIn(ctx, a.defaultConversationID, prompt)
+}
+
+// AskIn sends a user prompt in the named conversation.
+func (a *Agent) AskIn(ctx context.Context, conversationID, prompt string) (*AgentResponse, error) {
+	return a.Run(ctx, AgentRequest{
+		ConversationID: conversationID,
+		Messages:       []Message{UserMessage(prompt)},
+	})
 }
 
 // Run executes the agent loop per the design spec pseudocode.

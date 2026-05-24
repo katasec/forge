@@ -70,17 +70,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Run it.
-	resp, err := agent.Run(context.Background(), forge.AgentRequest{
-		Messages: []forge.Message{
-			{Role: forge.RoleUser, Content: "Hello! What are you?"},
-		},
-	})
+	// Ask preserves conversation history on this agent by default.
+	resp, err := agent.Ask(context.Background(), "Hello! What are you?")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(resp.Messages[len(resp.Messages)-1].Content)
+	fmt.Println(resp.LastText())
 	fmt.Printf("\n[%s | tokens: %d in, %d out]\n", *providerFlag, resp.Usage.InputTokens, resp.Usage.OutputTokens)
 
 	// Show citations if using xai-search.

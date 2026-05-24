@@ -21,6 +21,11 @@ type Message struct {
 	ToolResults []ToolResult `json:"tool_results,omitempty"`
 }
 
+// UserMessage creates a user-role message with the given content.
+func UserMessage(content string) Message {
+	return Message{Role: RoleUser, Content: content}
+}
+
 // ToolCall represents a request from the LLM to invoke a tool.
 type ToolCall struct {
 	ID        string          `json:"id"`
