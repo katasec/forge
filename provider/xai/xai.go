@@ -146,8 +146,8 @@ func (p *Provider) LastCitations() []Citation {
 // --- xAI Responses API wire types ---
 
 type request struct {
-	Model string      `json:"model"`
-	Input []inputItem `json:"input"`
+	Model string        `json:"model"`
+	Input []inputItem   `json:"input"`
 	Tools []requestTool `json:"tools,omitempty"`
 }
 
@@ -156,7 +156,7 @@ type inputItem struct {
 	Role    string `json:"role,omitempty"`
 	Content string `json:"content,omitempty"`
 	// Tool result fields
-	Type   string `json:"type,omitempty"`    // "function_call_output"
+	Type   string `json:"type,omitempty"` // "function_call_output"
 	CallID string `json:"call_id,omitempty"`
 	Output string `json:"output,omitempty"`
 }
@@ -292,8 +292,8 @@ func parseResponse(resp *response) (*forge.ProviderResponse, []Citation) {
 					}
 				}
 			}
-		// Server-side tool calls (web_search_call, x_search_call, etc.)
-		// are auto-executed by xAI — we don't surface them.
+			// Server-side tool calls (web_search_call, x_search_call, etc.)
+			// are auto-executed by xAI — we don't surface them.
 		}
 	}
 

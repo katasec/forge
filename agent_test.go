@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+
+	"github.com/katasec/forge/memory/inmem"
 )
 
 // mockProvider is a test double that returns pre-configured responses.
@@ -94,6 +96,20 @@ func TestNewAgentDisableMemory(t *testing.T) {
 	}
 	if agent.memory != nil {
 		t.Fatalf("memory = %T, want nil", agent.memory)
+	}
+}
+
+func TestNewAgentAcceptsExplicitMemoryStore(t *testing.T) {
+	store := inmem.New()
+	agent, err := NewAgent(Config{
+		Provider: &mockProvider{},
+		Memory:   store,
+	})
+	if err != nil {
+		t.Fatalf("NewAgent error: %v", err)
+	}
+	if agent.memory != store {
+		t.Fatalf("memory = %T, want explicit store", agent.memory)
 	}
 }
 

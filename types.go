@@ -1,71 +1,44 @@
 package forge
 
-import "encoding/json"
-
-// Role identifies the sender of a message in a conversation.
-type Role string
-
-const (
-	RoleUser      Role = "user"
-	RoleAssistant Role = "assistant"
-	RoleTool      Role = "tool"
-	RoleSystem    Role = "system"
+import (
+	"github.com/katasec/forge/message"
+	"github.com/katasec/forge/provider"
+	"github.com/katasec/forge/tool"
 )
 
-// Message represents a single message in a conversation.
-type Message struct {
-	ID          string       `json:"id"`
-	Role        Role         `json:"role"`
-	Content     string       `json:"content"`
-	ToolCalls   []ToolCall   `json:"tool_calls,omitempty"`
-	ToolResults []ToolResult `json:"tool_results,omitempty"`
-}
+type Role = message.Role
 
-// UserMessage creates a user-role message with the given content.
+const (
+	RoleUser      = message.RoleUser
+	RoleAssistant = message.RoleAssistant
+	RoleTool      = message.RoleTool
+	RoleSystem    = message.RoleSystem
+)
+
+type Message = message.Message
+
 func UserMessage(content string) Message {
-	return Message{Role: RoleUser, Content: content}
+	return message.UserMessage(content)
 }
 
-// ToolCall represents a request from the LLM to invoke a tool.
-type ToolCall struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Arguments json.RawMessage `json:"arguments"`
-}
+type ToolCall = tool.Call
+type ToolResult = tool.Result
+type ToolError = tool.Error
 
-// ToolResult represents the outcome of a tool invocation.
-type ToolResult struct {
-	CallID  string `json:"call_id"`
-	Content string `json:"content"`
-	IsError bool   `json:"is_error"`
-}
-
-// FinishReason indicates why the agent loop terminated.
-type FinishReason string
+type FinishReason = provider.FinishReason
 
 const (
-	FinishReasonStop      FinishReason = "stop"
-	FinishReasonToolUse   FinishReason = "tool_use"
-	FinishReasonIterLimit FinishReason = "iter_limit"
-	FinishReasonError     FinishReason = "error"
+	FinishReasonStop      = provider.FinishReasonStop
+	FinishReasonToolUse   = provider.FinishReasonToolUse
+	FinishReasonIterLimit = provider.FinishReasonIterLimit
+	FinishReasonError     = provider.FinishReasonError
 )
 
-// TokenUsage tracks token consumption across provider calls.
-type TokenUsage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
-}
+type TokenUsage = provider.TokenUsage
 
-// ErrorPolicy controls agent behavior when a tool invocation fails.
 type ErrorPolicy string
 
 const (
 	ErrorPolicyStop     ErrorPolicy = "stop"
 	ErrorPolicyContinue ErrorPolicy = "continue"
 )
-
-// ToolError wraps a tool invocation failure.
-type ToolError struct {
-	CallID  string `json:"call_id"`
-	Message string `json:"message"`
-}
