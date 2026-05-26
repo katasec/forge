@@ -55,7 +55,7 @@ func main() {
 		if key == "" {
 			log.Fatal("Set XAI_API_KEY environment variable")
 		}
-		xaiProvider = xai.New(key, "grok-4-1-fast-non-reasoning", xai.WithWebSearch())
+		xaiProvider = xai.New(key, xai.ModelGrok4FastNonReasoning, xai.WithWebSearch())
 		provider = xaiProvider
 	default:
 		log.Fatalf("Unknown provider: %s (use 'anthropic', 'xai', or 'xai-search')", *providerFlag)
