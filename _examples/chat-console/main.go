@@ -45,7 +45,7 @@ func buildProvider(name string) (forge.Provider, func()) {
 		return openai.New("https://api.x.ai/v1", key, "grok-3-mini"), func() {}
 	case "xai-search":
 		key := requireEnv("XAI_API_KEY")
-		provider := xai.New(key, "grok-4-1-fast-non-reasoning", xai.WithWebSearch())
+		provider := xai.New(key, xai.ModelGrok4FastNonReasoning, xai.WithWebSearch())
 		return provider, func() { printCitations(provider.LastCitations()) }
 	default:
 		log.Fatalf("unknown provider %q; use anthropic, xai, or xai-search", name)

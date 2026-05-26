@@ -14,12 +14,12 @@ import (
 var _ forge.Provider = (*Provider)(nil)
 
 func TestNew(t *testing.T) {
-	p := New("test-key", "grok-3-mini")
+	p := New("test-key", ModelGrok3Mini)
 	if p.apiKey != "test-key" {
 		t.Errorf("apiKey = %q, want %q", p.apiKey, "test-key")
 	}
-	if p.model != "grok-3-mini" {
-		t.Errorf("model = %q, want %q", p.model, "grok-3-mini")
+	if p.model != string(ModelGrok3Mini) {
+		t.Errorf("model = %q, want %q", p.model, ModelGrok3Mini)
 	}
 	if p.baseURL != "https://api.x.ai/v1" {
 		t.Errorf("baseURL = %q, want default", p.baseURL)
@@ -30,7 +30,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewWithOptions(t *testing.T) {
-	p := New("key", "model",
+	p := New("key", Model("custom-model"),
 		WithBaseURL("http://localhost"),
 		WithWebSearch(AllowedDomains("wikipedia.org", "github.com")),
 		WithXSearch(ExcludedHandles("@spam")),
@@ -72,7 +72,7 @@ func TestGenerate(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
-		if req.Model != "grok-3-mini" {
+		if req.Model != string(ModelGrok3Mini) {
 			t.Errorf("model = %q", req.Model)
 		}
 		// Should have system + user message.
@@ -103,7 +103,7 @@ func TestGenerate(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New("test-key", "grok-3-mini", WithBaseURL(srv.URL))
+	p := New("test-key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		SystemPrompt: "Be helpful.",
 		Messages: []forge.Message{
@@ -164,7 +164,7 @@ func TestGenerateWithFunctionCalls(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New("key", "grok-3-mini", WithBaseURL(srv.URL))
+	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Weather in SF?"}},
 		Tools: []forge.ToolDefinition{{
@@ -235,7 +235,7 @@ func TestGenerateWithToolResults(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New("key", "grok-3-mini", WithBaseURL(srv.URL))
+	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		Messages: []forge.Message{
 			{Role: forge.RoleUser, Content: "Weather in SF?"},
@@ -306,7 +306,7 @@ func TestGenerateWithWebSearch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New("key", "grok-3-mini",
+	p := New("key", ModelGrok3Mini,
 		WithBaseURL(srv.URL),
 		WithWebSearch(AllowedDomains("reuters.com")),
 	)
@@ -348,7 +348,7 @@ func TestGenerateAPIError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p := New("key", "grok-3-mini", WithBaseURL(srv.URL))
+	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	_, err := p.Generate(context.Background(), forge.ProviderRequest{
 		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Hi"}},
 	})

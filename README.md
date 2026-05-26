@@ -67,7 +67,7 @@ Or use the xAI Responses API with built-in web search:
 ```go
 import "github.com/katasec/forge/provider/xai"
 
-provider := xai.New(os.Getenv("XAI_API_KEY"), "grok-4-1-fast-non-reasoning", xai.WithWebSearch())
+provider := xai.New(os.Getenv("XAI_API_KEY"), xai.ModelGrok4FastNonReasoning, xai.WithWebSearch())
 
 // After running the agent, access citations:
 citations := provider.LastCitations()

@@ -5,7 +5,7 @@
 //
 // Usage:
 //
-//	provider := xai.New(apiKey, "grok-3-mini", xai.WithWebSearch())
+//	provider := xai.New(apiKey, xai.ModelGrok3Mini, xai.WithWebSearch())
 package xai
 
 import (
@@ -62,11 +62,11 @@ type xSearchConfig struct {
 }
 
 // New creates an xAI provider using the Responses API.
-func New(apiKey, model string, opts ...Option) *Provider {
+func New(apiKey string, model Model, opts ...Option) *Provider {
 	p := &Provider{
 		baseURL: "https://api.x.ai/v1",
 		apiKey:  apiKey,
-		model:   model,
+		model:   string(model),
 		client:  &http.Client{},
 	}
 	for _, opt := range opts {
