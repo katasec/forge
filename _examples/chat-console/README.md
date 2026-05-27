@@ -15,7 +15,14 @@ export ANTHROPIC_API_KEY=sk-ant-...
 go run .
 ```
 
-Use xAI's OpenAI-compatible endpoint:
+Use OpenAI's Responses API:
+
+```bash
+export OPENAI_API_KEY=sk-...
+go run . -provider openai
+```
+
+Use xAI's Responses API:
 
 ```bash
 export XAI_API_KEY=xai-...

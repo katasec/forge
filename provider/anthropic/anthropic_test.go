@@ -74,18 +74,18 @@ func TestGenerate(t *testing.T) {
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		SystemPrompt: "You are helpful.",
 		Messages: []forge.Message{
-			{Role: forge.RoleUser, Content: "Hi"},
+			forge.UserText("Hi"),
 		},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if resp.Message.Content != "Hello!" {
-		t.Errorf("content = %q, want %q", resp.Message.Content, "Hello!")
+	if resp.Messages[0].Text() != "Hello!" {
+		t.Errorf("content = %q, want %q", resp.Messages[0].Text(), "Hello!")
 	}
-	if resp.Message.Role != forge.RoleAssistant {
-		t.Errorf("role = %q, want %q", resp.Message.Role, forge.RoleAssistant)
+	if resp.Messages[0].Role != forge.RoleAssistant {
+		t.Errorf("role = %q, want %q", resp.Messages[0].Role, forge.RoleAssistant)
 	}
 	if resp.FinishReason != forge.FinishReasonStop {
 		t.Errorf("finishReason = %q, want %q", resp.FinishReason, forge.FinishReasonStop)
@@ -112,7 +112,7 @@ func TestGenerateAPIError(t *testing.T) {
 	}
 
 	_, err := p.Generate(context.Background(), forge.ProviderRequest{
-		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Hi"}},
+		Messages: []forge.Message{forge.UserText("Hi")},
 	})
 	if err == nil {
 		t.Fatal("expected error for 401 response")

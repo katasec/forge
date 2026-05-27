@@ -27,7 +27,7 @@ func (m *mockProvider) Generate(_ context.Context, _ ProviderRequest) (*Provider
 	}
 	// Default: stop with empty message.
 	return &ProviderResponse{
-		Message:      Message{Role: RoleAssistant, Content: "default"},
+		Messages:     []Message{AssistantText("default")},
 		FinishReason: FinishReasonStop,
 	}, nil
 }
@@ -47,7 +47,7 @@ func (r *recordingProvider) Generate(_ context.Context, req ProviderRequest) (*P
 		return r.responses[i], nil
 	}
 	return &ProviderResponse{
-		Message:      Message{Role: RoleAssistant, Content: "default"},
+		Messages:     []Message{AssistantText("default")},
 		FinishReason: FinishReasonStop,
 	}, nil
 }
@@ -117,11 +117,11 @@ func TestAgentAskPreservesDefaultConversation(t *testing.T) {
 	provider := &recordingProvider{
 		responses: []*ProviderResponse{
 			{
-				Message:      Message{Role: RoleAssistant, Content: "hello"},
+				Messages:     []Message{AssistantText("hello")},
 				FinishReason: FinishReasonStop,
 			},
 			{
-				Message:      Message{Role: RoleAssistant, Content: "I remember"},
+				Messages:     []Message{AssistantText("I remember")},
 				FinishReason: FinishReasonStop,
 			},
 		},
@@ -153,17 +153,17 @@ func TestAgentAskPreservesDefaultConversation(t *testing.T) {
 	if len(provider.requests[1].Messages) != 3 {
 		t.Fatalf("second request messages = %d, want 3", len(provider.requests[1].Messages))
 	}
-	if provider.requests[1].Messages[0].Content != "My name is Ameer." {
-		t.Errorf("first remembered message = %q", provider.requests[1].Messages[0].Content)
+	if provider.requests[1].Messages[0].Text() != "My name is Ameer." {
+		t.Errorf("first remembered message = %q", provider.requests[1].Messages[0].Text())
 	}
 }
 
 func TestAgentAskInUsesNamedConversations(t *testing.T) {
 	provider := &recordingProvider{
 		responses: []*ProviderResponse{
-			{Message: Message{Role: RoleAssistant, Content: "forge noted"}, FinishReason: FinishReasonStop},
-			{Message: Message{Role: RoleAssistant, Content: "other noted"}, FinishReason: FinishReasonStop},
-			{Message: Message{Role: RoleAssistant, Content: "forge remembered"}, FinishReason: FinishReasonStop},
+			{Messages: []Message{AssistantText("forge noted")}, FinishReason: FinishReasonStop},
+			{Messages: []Message{AssistantText("other noted")}, FinishReason: FinishReasonStop},
+			{Messages: []Message{AssistantText("forge remembered")}, FinishReason: FinishReasonStop},
 		},
 	}
 
@@ -189,18 +189,18 @@ func TestAgentAskInUsesNamedConversations(t *testing.T) {
 	if len(provider.requests[2].Messages) != 3 {
 		t.Fatalf("forge follow-up messages = %d, want 3", len(provider.requests[2].Messages))
 	}
-	if provider.requests[2].Messages[0].Content != "Remember forge." {
-		t.Errorf("first forge message = %q", provider.requests[2].Messages[0].Content)
+	if provider.requests[2].Messages[0].Text() != "Remember forge." {
+		t.Errorf("first forge message = %q", provider.requests[2].Messages[0].Text())
 	}
 }
 
 func TestAgentResponseLastText(t *testing.T) {
 	resp := &AgentResponse{
 		Messages: []Message{
-			UserMessage("hello"),
-			{Role: RoleAssistant, Content: "first"},
-			{Role: RoleTool, ToolResults: []ToolResult{{Content: "tool result"}}},
-			{Role: RoleAssistant, Content: "latest"},
+			UserText("hello"),
+			AssistantText("first"),
+			{Role: RoleTool, Content: []ContentBlock{ToolResultBlock(ToolResult{Content: "tool result"})}},
+			AssistantText("latest"),
 		},
 	}
 
@@ -213,7 +213,7 @@ func TestAgentRunStop(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message:      Message{Role: RoleAssistant, Content: "hello back"},
+				Messages:     []Message{AssistantText("hello back")},
 				FinishReason: FinishReasonStop,
 				Usage:        TokenUsage{InputTokens: 10, OutputTokens: 5},
 			},
@@ -222,7 +222,7 @@ func TestAgentRunStop(t *testing.T) {
 
 	agent, _ := NewAgent(Config{Provider: provider})
 	resp, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "hello"}},
+		Messages: []Message{UserText("hello")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -246,18 +246,12 @@ func TestAgentRunIterLimit(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message: Message{
-					Role:      RoleAssistant,
-					ToolCalls: []ToolCall{{ID: "c1", Name: "echo", Arguments: json.RawMessage(`{"text":"hi"}`)}},
-				},
+				Messages:     []Message{{Role: RoleAssistant, Content: []ContentBlock{ToolCallBlock(ToolCall{ID: "c1", Name: "echo", Arguments: json.RawMessage(`{"text":"hi"}`)})}}},
 				FinishReason: FinishReasonToolUse,
 			},
 			// Would loop forever, but iter limit stops it.
 			{
-				Message: Message{
-					Role:      RoleAssistant,
-					ToolCalls: []ToolCall{{ID: "c2", Name: "echo", Arguments: json.RawMessage(`{"text":"hi"}`)}},
-				},
+				Messages:     []Message{{Role: RoleAssistant, Content: []ContentBlock{ToolCallBlock(ToolCall{ID: "c2", Name: "echo", Arguments: json.RawMessage(`{"text":"hi"}`)})}}},
 				FinishReason: FinishReasonToolUse,
 			},
 		},
@@ -278,7 +272,7 @@ func TestAgentRunIterLimit(t *testing.T) {
 	})
 
 	resp, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "go"}},
+		Messages: []Message{UserText("go")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -295,7 +289,7 @@ func TestAgentRunProviderError(t *testing.T) {
 
 	agent, _ := NewAgent(Config{Provider: provider})
 	_, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "hello"}},
+		Messages: []Message{UserText("hello")},
 	})
 	if err == nil {
 		t.Fatal("expected error from provider")
@@ -309,10 +303,7 @@ func TestAgentRunToolErrorStop(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message: Message{
-					Role:      RoleAssistant,
-					ToolCalls: []ToolCall{{ID: "c1", Name: "broken", Arguments: json.RawMessage(`{}`)}},
-				},
+				Messages:     []Message{{Role: RoleAssistant, Content: []ContentBlock{ToolCallBlock(ToolCall{ID: "c1", Name: "broken", Arguments: json.RawMessage(`{}`)})}}},
 				FinishReason: FinishReasonToolUse,
 			},
 		},
@@ -331,7 +322,7 @@ func TestAgentRunToolErrorStop(t *testing.T) {
 	})
 
 	resp, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "go"}},
+		Messages: []Message{UserText("go")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v (tool errors should not be fatal)", err)
@@ -358,15 +349,12 @@ func TestAgentRunToolErrorContinue(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message: Message{
-					Role:      RoleAssistant,
-					ToolCalls: []ToolCall{{ID: "c1", Name: "broken", Arguments: json.RawMessage(`{}`)}},
-				},
+				Messages:     []Message{{Role: RoleAssistant, Content: []ContentBlock{ToolCallBlock(ToolCall{ID: "c1", Name: "broken", Arguments: json.RawMessage(`{}`)})}}},
 				FinishReason: FinishReasonToolUse,
 			},
 			// After seeing the error, LLM stops.
 			{
-				Message:      Message{Role: RoleAssistant, Content: "I see the tool failed"},
+				Messages:     []Message{AssistantText("I see the tool failed")},
 				FinishReason: FinishReasonStop,
 			},
 		},
@@ -383,7 +371,7 @@ func TestAgentRunToolErrorContinue(t *testing.T) {
 	})
 
 	resp, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "go"}},
+		Messages: []Message{UserText("go")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -405,13 +393,13 @@ func TestAgentRunWithMemory(t *testing.T) {
 
 	// Pre-populate memory.
 	store.Save(ctx, "conv-1", []Message{
-		{ID: "prev-1", Role: RoleUser, Content: "earlier message"},
+		UserText("earlier message"),
 	})
 
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message:      Message{Role: RoleAssistant, Content: "I remember"},
+				Messages:     []Message{AssistantText("I remember")},
 				FinishReason: FinishReasonStop,
 				Usage:        TokenUsage{InputTokens: 20, OutputTokens: 10},
 			},
@@ -425,7 +413,7 @@ func TestAgentRunWithMemory(t *testing.T) {
 
 	resp, err := agent.Run(ctx, AgentRequest{
 		ConversationID: "conv-1",
-		Messages:       []Message{{Role: RoleUser, Content: "new message"}},
+		Messages:       []Message{UserText("new message")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
@@ -435,8 +423,8 @@ func TestAgentRunWithMemory(t *testing.T) {
 	if len(resp.Messages) != 3 {
 		t.Fatalf("got %d messages, want 3", len(resp.Messages))
 	}
-	if resp.Messages[0].Content != "earlier message" {
-		t.Errorf("Messages[0] = %q, want %q", resp.Messages[0].Content, "earlier message")
+	if resp.Messages[0].Text() != "earlier message" {
+		t.Errorf("Messages[0] = %q, want %q", resp.Messages[0].Text(), "earlier message")
 	}
 
 	// Memory should be updated with all 3 messages.
@@ -452,15 +440,12 @@ func TestAgentRunUsageAccumulation(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*ProviderResponse{
 			{
-				Message: Message{
-					Role:      RoleAssistant,
-					ToolCalls: []ToolCall{{ID: "c1", Name: "noop", Arguments: json.RawMessage(`{}`)}},
-				},
+				Messages:     []Message{{Role: RoleAssistant, Content: []ContentBlock{ToolCallBlock(ToolCall{ID: "c1", Name: "noop", Arguments: json.RawMessage(`{}`)})}}},
 				FinishReason: FinishReasonToolUse,
 				Usage:        TokenUsage{InputTokens: 10, OutputTokens: 5},
 			},
 			{
-				Message:      Message{Role: RoleAssistant, Content: "done"},
+				Messages:     []Message{AssistantText("done")},
 				FinishReason: FinishReasonStop,
 				Usage:        TokenUsage{InputTokens: 20, OutputTokens: 8},
 			},
@@ -477,7 +462,7 @@ func TestAgentRunUsageAccumulation(t *testing.T) {
 	})
 
 	resp, err := agent.Run(context.Background(), AgentRequest{
-		Messages: []Message{{Role: RoleUser, Content: "go"}},
+		Messages: []Message{UserText("go")},
 	})
 	if err != nil {
 		t.Fatalf("Run error: %v", err)

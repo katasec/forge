@@ -43,16 +43,16 @@ func (p *MockProvider) Generate(_ context.Context, req forge.ProviderRequest) (*
 	// First call: "LLM" decides to use the add tool.
 	if p.calls == 1 {
 		return &forge.ProviderResponse{
-			Message: forge.Message{
+			Messages: []forge.Message{{
 				Role: forge.RoleAssistant,
-				ToolCalls: []forge.ToolCall{
-					{
+				Content: []forge.ContentBlock{
+					forge.ToolCallBlock(forge.ToolCall{
 						ID:        "call-1",
 						Name:      "add",
 						Arguments: json.RawMessage(`{"a": 12, "b": 30}`),
-					},
+					}),
 				},
-			},
+			}},
 			FinishReason: forge.FinishReasonToolUse,
 			Usage:        forge.TokenUsage{InputTokens: 25, OutputTokens: 15},
 		}, nil
@@ -62,16 +62,13 @@ func (p *MockProvider) Generate(_ context.Context, req forge.ProviderRequest) (*
 	// Look at the last message to find the tool result.
 	var toolResult string
 	for _, msg := range req.Messages {
-		if msg.Role == forge.RoleTool && len(msg.ToolResults) > 0 {
-			toolResult = msg.ToolResults[0].Content
+		if msg.Role == forge.RoleTool && len(msg.ToolResults()) > 0 {
+			toolResult = msg.ToolResults()[0].Content
 		}
 	}
 
 	return &forge.ProviderResponse{
-		Message: forge.Message{
-			Role:    forge.RoleAssistant,
-			Content: fmt.Sprintf("The answer is %s!", toolResult),
-		},
+		Messages:     []forge.Message{forge.AssistantText(fmt.Sprintf("The answer is %s!", toolResult))},
 		FinishReason: forge.FinishReasonStop,
 		Usage:        forge.TokenUsage{InputTokens: 40, OutputTokens: 10},
 	}, nil

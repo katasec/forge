@@ -84,12 +84,12 @@ func TestFuncInvokeInvalidArgs(t *testing.T) {
 }
 
 func TestUserMessage(t *testing.T) {
-	msg := UserMessage("hello")
+	msg := UserText("hello")
 	if msg.Role != RoleUser {
 		t.Fatalf("Role = %q, want %q", msg.Role, RoleUser)
 	}
-	if msg.Content != "hello" {
-		t.Fatalf("Content = %q, want hello", msg.Content)
+	if msg.Text() != "hello" {
+		t.Fatalf("Content = %q, want hello", msg.Text())
 	}
 }
 

@@ -107,18 +107,18 @@ func TestGenerate(t *testing.T) {
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		SystemPrompt: "Be helpful.",
 		Messages: []forge.Message{
-			{Role: forge.RoleUser, Content: "Hi"},
+			forge.UserText("Hi"),
 		},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if resp.Message.Content != "Hello from Grok!" {
-		t.Errorf("content = %q", resp.Message.Content)
+	if resp.Messages[0].Text() != "Hello from Grok!" {
+		t.Errorf("content = %q", resp.Messages[0].Text())
 	}
-	if resp.Message.Role != forge.RoleAssistant {
-		t.Errorf("role = %q", resp.Message.Role)
+	if resp.Messages[0].Role != forge.RoleAssistant {
+		t.Errorf("role = %q", resp.Messages[0].Role)
 	}
 	if resp.FinishReason != forge.FinishReasonStop {
 		t.Errorf("finishReason = %q", resp.FinishReason)
@@ -166,7 +166,7 @@ func TestGenerateWithFunctionCalls(t *testing.T) {
 
 	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
-		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Weather in SF?"}},
+		Messages: []forge.Message{forge.UserText("Weather in SF?")},
 		Tools: []forge.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -180,10 +180,10 @@ func TestGenerateWithFunctionCalls(t *testing.T) {
 	if resp.FinishReason != forge.FinishReasonToolUse {
 		t.Errorf("finishReason = %q, want tool_use", resp.FinishReason)
 	}
-	if len(resp.Message.ToolCalls) != 1 {
-		t.Fatalf("toolCalls = %d, want 1", len(resp.Message.ToolCalls))
+	if len(resp.Messages[0].ToolCalls()) != 1 {
+		t.Fatalf("toolCalls = %d, want 1", len(resp.Messages[0].ToolCalls()))
 	}
-	tc := resp.Message.ToolCalls[0]
+	tc := resp.Messages[0].ToolCalls()[0]
 	if tc.ID != "call-1" {
 		t.Errorf("toolCall.ID = %q", tc.ID)
 	}
@@ -238,12 +238,12 @@ func TestGenerateWithToolResults(t *testing.T) {
 	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
 		Messages: []forge.Message{
-			{Role: forge.RoleUser, Content: "Weather in SF?"},
-			{Role: forge.RoleAssistant, Content: "", ToolCalls: []forge.ToolCall{
-				{ID: "call-1", Name: "get_weather", Arguments: json.RawMessage(`{"city":"SF"}`)},
+			forge.UserText("Weather in SF?"),
+			{Role: forge.RoleAssistant, Content: []forge.ContentBlock{
+				forge.ToolCallBlock(forge.ToolCall{ID: "call-1", Name: "get_weather", Arguments: json.RawMessage(`{"city":"SF"}`)}),
 			}},
-			{Role: forge.RoleTool, ToolResults: []forge.ToolResult{
-				{CallID: "call-1", Content: "72°F"},
+			{Role: forge.RoleTool, Content: []forge.ContentBlock{
+				forge.ToolResultBlock(forge.ToolResult{CallID: "call-1", Content: "72°F"}),
 			}},
 		},
 	})
@@ -251,8 +251,8 @@ func TestGenerateWithToolResults(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if resp.Message.Content != "It's 72°F in SF." {
-		t.Errorf("content = %q", resp.Message.Content)
+	if resp.Messages[0].Text() != "It's 72°F in SF." {
+		t.Errorf("content = %q", resp.Messages[0].Text())
 	}
 	if resp.FinishReason != forge.FinishReasonStop {
 		t.Errorf("finishReason = %q", resp.FinishReason)
@@ -311,14 +311,14 @@ func TestGenerateWithWebSearch(t *testing.T) {
 		WithWebSearch(AllowedDomains("reuters.com")),
 	)
 	resp, err := p.Generate(context.Background(), forge.ProviderRequest{
-		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Latest xAI news?"}},
+		Messages: []forge.Message{forge.UserText("Latest xAI news?")},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if resp.Message.Content != "According to Reuters, xAI launched..." {
-		t.Errorf("content = %q", resp.Message.Content)
+	if resp.Messages[0].Text() != "According to Reuters, xAI launched..." {
+		t.Errorf("content = %q", resp.Messages[0].Text())
 	}
 	if resp.FinishReason != forge.FinishReasonStop {
 		t.Errorf("finishReason = %q", resp.FinishReason)
@@ -350,7 +350,7 @@ func TestGenerateAPIError(t *testing.T) {
 
 	p := New("key", ModelGrok3Mini, WithBaseURL(srv.URL))
 	_, err := p.Generate(context.Background(), forge.ProviderRequest{
-		Messages: []forge.Message{{Role: forge.RoleUser, Content: "Hi"}},
+		Messages: []forge.Message{forge.UserText("Hi")},
 	})
 	if err == nil {
 		t.Fatal("expected error for 429 response")

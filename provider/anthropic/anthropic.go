@@ -28,6 +28,14 @@ func New(apiKey, model string) *Provider {
 	}
 }
 
+// Capabilities describes the Anthropic provider features Forge currently supports.
+func (p *Provider) Capabilities() forge.Capabilities {
+	return forge.Capabilities{
+		Usage:      true,
+		Production: true,
+	}
+}
+
 // --- Anthropic API request/response types ---
 
 type request struct {
@@ -68,7 +76,7 @@ func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*fo
 		}
 		msgs = append(msgs, message{
 			Role:    string(m.Role),
-			Content: m.Content,
+			Content: m.Text(),
 		})
 	}
 
@@ -127,10 +135,7 @@ func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*fo
 	}
 
 	return &forge.ProviderResponse{
-		Message: forge.Message{
-			Role:    forge.RoleAssistant,
-			Content: textContent,
-		},
+		Messages:     []forge.Message{forge.AssistantText(textContent)},
 		FinishReason: finishReason,
 		Usage: forge.TokenUsage{
 			InputTokens:  apiResp.Usage.InputTokens,

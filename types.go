@@ -16,9 +16,47 @@ const (
 )
 
 type Message = message.Message
+type ContentBlock = message.ContentBlock
+type ContentType = message.ContentType
+type ImageContent = message.ImageContent
 
-func UserMessage(content string) Message {
-	return message.UserMessage(content)
+const (
+	ContentTypeText       = message.ContentTypeText
+	ContentTypeImage      = message.ContentTypeImage
+	ContentTypeToolCall   = message.ContentTypeToolCall
+	ContentTypeToolResult = message.ContentTypeToolResult
+)
+
+func Text(content string) ContentBlock {
+	return message.Text(content)
+}
+
+func ImageURL(url string) ContentBlock {
+	return message.ImageURL(url)
+}
+
+func ImageBytes(data []byte, mediaType string) ContentBlock {
+	return message.ImageBytes(data, mediaType)
+}
+
+func ToolCallBlock(call ToolCall) ContentBlock {
+	return message.ToolCall(call)
+}
+
+func ToolResultBlock(result ToolResult) ContentBlock {
+	return message.ToolResult(result)
+}
+
+func UserMessage(blocks ...ContentBlock) Message {
+	return message.UserMessage(blocks...)
+}
+
+func UserText(content string) Message {
+	return message.UserText(content)
+}
+
+func AssistantText(content string) Message {
+	return message.AssistantText(content)
 }
 
 type ToolCall = tool.Call
@@ -35,6 +73,8 @@ const (
 )
 
 type TokenUsage = provider.TokenUsage
+type Capabilities = provider.Capabilities
+type CapabilityProvider = provider.CapabilityProvider
 
 type ErrorPolicy string
 

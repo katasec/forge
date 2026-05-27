@@ -52,15 +52,15 @@ func main() {
 }
 ```
 
-Swap to xAI Grok by changing one import:
+Swap to OpenAI by changing one import:
 
 ```go
 import "github.com/katasec/forge/provider/openai"
 
-provider := openai.New("https://api.x.ai/v1", os.Getenv("XAI_API_KEY"), "grok-3-mini")
+provider := openai.New(os.Getenv("OPENAI_API_KEY"), openai.ModelGPT54Nano)
 ```
 
-The `openai` package works with any OpenAI-compatible API (xAI, OpenAI, Together, Groq, etc.).
+The `openai` package uses the OpenAI Responses API, including text and image content.
 
 Or use the xAI Responses API with built-in web search:
 
@@ -132,6 +132,16 @@ For the common case, use `Ask`:
 
 ```go
 resp, err := agent.Ask(ctx, "Hello")
+fmt.Println(resp.LastText())
+```
+
+For multimodal input, use `AskContent`:
+
+```go
+resp, err := agent.AskContent(ctx,
+    forge.Text("Describe this image."),
+    forge.ImageURL("https://example.com/cat.png"),
+)
 fmt.Println(resp.LastText())
 ```
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/katasec/forge/message"
 )
 
 // AgentRequest is the input to Agent.Run.
@@ -26,8 +27,8 @@ type AgentResponse struct {
 func (r *AgentResponse) LastText() string {
 	for i := len(r.Messages) - 1; i >= 0; i-- {
 		msg := r.Messages[i]
-		if msg.Role == RoleAssistant && msg.Content != "" {
-			return msg.Content
+		if msg.Role == RoleAssistant && msg.Text() != "" {
+			return msg.Text()
 		}
 	}
 	return ""
@@ -97,7 +98,15 @@ func (a *Agent) Ask(ctx context.Context, prompt string) (*AgentResponse, error) 
 func (a *Agent) AskIn(ctx context.Context, conversationID, prompt string) (*AgentResponse, error) {
 	return a.Run(ctx, AgentRequest{
 		ConversationID: conversationID,
-		Messages:       []Message{UserMessage(prompt)},
+		Messages:       []Message{UserText(prompt)},
+	})
+}
+
+// AskContent sends a rich user message in the agent's default conversation.
+func (a *Agent) AskContent(ctx context.Context, blocks ...ContentBlock) (*AgentResponse, error) {
+	return a.Run(ctx, AgentRequest{
+		ConversationID: a.defaultConversationID,
+		Messages:       []Message{UserMessage(blocks...)},
 	})
 }
 
@@ -147,8 +156,11 @@ func (a *Agent) Run(ctx context.Context, req AgentRequest) (*AgentResponse, erro
 		}
 
 		usage.InputTokens += resp.Usage.InputTokens
+		usage.CachedInputTokens += resp.Usage.CachedInputTokens
 		usage.OutputTokens += resp.Usage.OutputTokens
-		messages = append(messages, resp.Message)
+		usage.ReasoningOutputTokens += resp.Usage.ReasoningOutputTokens
+		usage.TotalTokens += resp.Usage.TotalTokens
+		messages = append(messages, resp.Messages...)
 		iteration++
 
 		if resp.FinishReason == FinishReasonStop {
@@ -157,7 +169,18 @@ func (a *Agent) Run(ctx context.Context, req AgentRequest) (*AgentResponse, erro
 		}
 
 		// FinishReason is tool_use - execute the tool calls.
-		toolResults := a.executor.Execute(ctx, resp.Message.ToolCalls)
+		if len(resp.Messages) == 0 {
+			finishReason = FinishReasonError
+			toolErrors = append(toolErrors, ToolError{Message: "provider requested tool use without a message"})
+			break
+		}
+		toolCalls := resp.Messages[len(resp.Messages)-1].ToolCalls()
+		if len(toolCalls) == 0 {
+			finishReason = FinishReasonError
+			toolErrors = append(toolErrors, ToolError{Message: "provider requested tool use without tool calls"})
+			break
+		}
+		toolResults := a.executor.Execute(ctx, toolCalls)
 
 		// Check for tool errors.
 		hasError := false
@@ -176,11 +199,7 @@ func (a *Agent) Run(ctx context.Context, req AgentRequest) (*AgentResponse, erro
 		}
 
 		// Append tool results message (even on error, for coherent history).
-		toolMsg := Message{
-			Role:        RoleTool,
-			ToolResults: toolResults,
-		}
-		messages = append(messages, toolMsg)
+		messages = append(messages, message.ToolMessage(toolResults...))
 
 		if hasError {
 			break
