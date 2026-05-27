@@ -30,9 +30,7 @@ func (s *Store) Load(_ context.Context, conversationID string) ([]message.Messag
 		return nil, nil
 	}
 
-	cp := make([]message.Message, len(msgs))
-	copy(cp, msgs)
-	return cp, nil
+	return cloneMessages(msgs), nil
 }
 
 // Save replaces the entire message history for the given conversation.
@@ -40,9 +38,7 @@ func (s *Store) Save(_ context.Context, conversationID string, messages []messag
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cp := make([]message.Message, len(messages))
-	copy(cp, messages)
-	s.data[conversationID] = cp
+	s.data[conversationID] = cloneMessages(messages)
 	return nil
 }
 
@@ -53,4 +49,44 @@ func (s *Store) Clear(_ context.Context, conversationID string) error {
 
 	delete(s.data, conversationID)
 	return nil
+}
+
+func cloneMessages(messages []message.Message) []message.Message {
+	cp := make([]message.Message, len(messages))
+	for i, msg := range messages {
+		cp[i] = msg
+		cp[i].Content = cloneContentBlocks(msg.Content)
+	}
+	return cp
+}
+
+func cloneContentBlocks(blocks []message.ContentBlock) []message.ContentBlock {
+	cp := make([]message.ContentBlock, len(blocks))
+	for i, block := range blocks {
+		cp[i] = block
+		if block.Image != nil {
+			image := *block.Image
+			if image.Data != nil {
+				image.Data = append([]byte(nil), image.Data...)
+			}
+			cp[i].Image = &image
+		}
+		if block.ToolCall != nil {
+			call := *block.ToolCall
+			call.Arguments = append([]byte(nil), call.Arguments...)
+			cp[i].ToolCall = &call
+		}
+		if block.ToolResult != nil {
+			result := *block.ToolResult
+			cp[i].ToolResult = &result
+		}
+		if block.Metadata != nil {
+			metadata := make(map[string]any, len(block.Metadata))
+			for k, v := range block.Metadata {
+				metadata[k] = v
+			}
+			cp[i].Metadata = metadata
+		}
+	}
+	return cp
 }

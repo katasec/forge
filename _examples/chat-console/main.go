@@ -42,13 +42,16 @@ func buildProvider(name string) (forge.Provider, func()) {
 		return anthropic.New(key, "claude-sonnet-4-20250514"), func() {}
 	case "xai":
 		key := requireEnv("XAI_API_KEY")
-		return openai.New("https://api.x.ai/v1", key, "grok-3-mini"), func() {}
+		return xai.New(key, xai.ModelGrok4FastNonReasoning), func() {}
+	case "openai":
+		key := requireEnv("OPENAI_API_KEY")
+		return openai.New(key, openai.ModelGPT54Nano), func() {}
 	case "xai-search":
 		key := requireEnv("XAI_API_KEY")
 		provider := xai.New(key, xai.ModelGrok4FastNonReasoning, xai.WithWebSearch())
 		return provider, func() { printCitations(provider.LastCitations()) }
 	default:
-		log.Fatalf("unknown provider %q; use anthropic, xai, or xai-search", name)
+		log.Fatalf("unknown provider %q; use anthropic, openai, xai, or xai-search", name)
 		return nil, nil
 	}
 }

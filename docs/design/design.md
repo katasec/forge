@@ -21,7 +21,7 @@ forge/tool/                     tool interface, typed Func helper, calls, result
 forge/tool/registry/            tool registry implementation
 forge/provider/                 provider interface, requests, responses, usage, finish reasons
 forge/provider/anthropic/       Anthropic Messages API provider
-forge/provider/openai/          OpenAI-compatible provider (OpenAI, xAI, Together, Groq)
+forge/provider/openai/          OpenAI Responses API provider
 forge/provider/xai/             xAI Responses API provider (web search, X search, citations)
 forge/memory/                   memory store interface
 forge/memory/inmem/             in-memory memory store
@@ -456,7 +456,7 @@ Pseudocode:
 24.
 25.     usage.InputTokens  += providerResp.Usage.InputTokens
 26.     usage.OutputTokens += providerResp.Usage.OutputTokens
-27.     append providerResp.Message to messages
+27.     append providerResp.Messages to messages
 28.     iteration++
 29.
 30.     if providerResp.FinishReason == FinishReasonStop:
@@ -464,7 +464,7 @@ Pseudocode:
 32.         break LOOP
 33.
 34.     // FinishReason is tool_use - execute the tool calls
-35.     toolResults = executor.Execute(ctx, providerResp.Message.ToolCalls)
+35.     toolResults = executor.Execute(ctx, last(providerResp.Messages).ToolCalls())
 36.
 37.     // Check for tool errors
 38.     for each result in toolResults where result.IsError:
@@ -472,12 +472,12 @@ Pseudocode:
 40.         if errorPolicy == ErrorPolicyStop:
 41.             finishReason = FinishReasonError
 42.             // still append the tool message so the conversation is coherent
-43.             toolMsg = Message{Role: RoleTool, ToolResults: toolResults}
+43.             toolMsg = ToolMessage(toolResults...)
 44.             append toolMsg to messages
 45.             break LOOP
 46.
 47.     // Feed results back to the LLM
-48.     toolMsg = Message{Role: RoleTool, ToolResults: toolResults}
+48.     toolMsg = ToolMessage(toolResults...)
 49.     append toolMsg to messages
 50.
 51. END LOOP

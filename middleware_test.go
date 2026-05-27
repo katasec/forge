@@ -16,7 +16,7 @@ func TestSingleMiddleware(t *testing.T) {
 
 	inner := RunFunc(func(_ context.Context, _ ProviderRequest) (*ProviderResponse, error) {
 		return &ProviderResponse{
-			Message:      Message{Role: RoleAssistant, Content: "ok"},
+			Messages:     []Message{AssistantText("ok")},
 			FinishReason: FinishReasonStop,
 		}, nil
 	})
@@ -29,8 +29,8 @@ func TestSingleMiddleware(t *testing.T) {
 	if !called {
 		t.Error("middleware was not called")
 	}
-	if resp.Message.Content != "ok" {
-		t.Errorf("Content = %q, want %q", resp.Message.Content, "ok")
+	if resp.Messages[0].Text() != "ok" {
+		t.Errorf("Content = %q, want %q", resp.Messages[0].Text(), "ok")
 	}
 }
 
@@ -53,7 +53,7 @@ func TestMiddlewareCompositionOrder(t *testing.T) {
 	inner := RunFunc(func(_ context.Context, _ ProviderRequest) (*ProviderResponse, error) {
 		order = append(order, "provider")
 		return &ProviderResponse{
-			Message:      Message{Role: RoleAssistant, Content: "ok"},
+			Messages:     []Message{AssistantText("ok")},
 			FinishReason: FinishReasonStop,
 		}, nil
 	})

@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/katasec/forge"
+	"github.com/katasec/forge/message"
 )
 
 // Provider implements forge.Provider using the xAI Responses API.
@@ -73,6 +74,15 @@ func New(apiKey string, model Model, opts ...Option) *Provider {
 		opt(p)
 	}
 	return p
+}
+
+// Capabilities describes the xAI provider features Forge currently supports.
+func (p *Provider) Capabilities() forge.Capabilities {
+	return forge.Capabilities{
+		Tools:      true,
+		Usage:      true,
+		Production: true,
+	}
 }
 
 // WithBaseURL overrides the API base URL (useful for testing).
@@ -226,8 +236,8 @@ func convertMessages(msgs []forge.Message, systemPrompt string) []inputItem {
 		}
 
 		// Tool result messages expand into one input item per result.
-		if m.Role == forge.RoleTool && len(m.ToolResults) > 0 {
-			for _, tr := range m.ToolResults {
+		if m.Role == forge.RoleTool && len(m.ToolResults()) > 0 {
+			for _, tr := range m.ToolResults() {
 				items = append(items, inputItem{
 					Type:   "function_call_output",
 					CallID: tr.CallID,
@@ -239,7 +249,7 @@ func convertMessages(msgs []forge.Message, systemPrompt string) []inputItem {
 
 		items = append(items, inputItem{
 			Role:    string(m.Role),
-			Content: m.Content,
+			Content: m.Text(),
 		})
 	}
 
@@ -302,12 +312,16 @@ func parseResponse(resp *response) (*forge.ProviderResponse, []Citation) {
 		finishReason = forge.FinishReasonToolUse
 	}
 
+	blocks := []forge.ContentBlock{}
+	if content != "" {
+		blocks = append(blocks, forge.Text(content))
+	}
+	for _, call := range toolCalls {
+		blocks = append(blocks, message.ToolCall(call))
+	}
+
 	return &forge.ProviderResponse{
-		Message: forge.Message{
-			Role:      forge.RoleAssistant,
-			Content:   content,
-			ToolCalls: toolCalls,
-		},
+		Messages:     []forge.Message{{Role: forge.RoleAssistant, Content: blocks}},
 		FinishReason: finishReason,
 		Usage: forge.TokenUsage{
 			InputTokens:  resp.Usage.InputTokens,

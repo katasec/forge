@@ -1,16 +1,16 @@
 // Hello World is the simplest possible forge example.
 //
 // Shows how to call Claude with your Anthropic API key, and how to
-// swap to xAI's Grok by changing one line.
+// swap to xAI's Grok or OpenAI by changing one flag.
 //
 // Usage:
 //
 //	export ANTHROPIC_API_KEY=sk-ant-...
 //	go run .
 //
-//	# Or use xAI's OpenAI-compatible endpoint instead:
-//	export XAI_API_KEY=xai-...
-//	go run . -provider xai
+//	# Or use OpenAI's Responses API instead:
+//	export OPENAI_API_KEY=sk-...
+//	go run . -provider openai
 //
 //	# Or use xAI Responses API with web search:
 //	export XAI_API_KEY=xai-...
@@ -31,7 +31,7 @@ import (
 )
 
 func main() {
-	providerFlag := flag.String("provider", "anthropic", "Provider to use: anthropic, xai, or xai-search")
+	providerFlag := flag.String("provider", "anthropic", "Provider to use: anthropic, openai, xai, or xai-search")
 	flag.Parse()
 
 	// Pick your provider. The agent setup below stays the same.
@@ -44,12 +44,19 @@ func main() {
 			log.Fatal("Set ANTHROPIC_API_KEY environment variable")
 		}
 		provider = anthropic.New(key, "claude-sonnet-4-20250514")
+	case "openai":
+		key := os.Getenv("OPENAI_API_KEY")
+		if key == "" {
+			log.Fatal("Set OPENAI_API_KEY environment variable")
+		}
+		provider = openai.New(key, openai.ModelGPT54Nano)
 	case "xai":
 		key := os.Getenv("XAI_API_KEY")
 		if key == "" {
 			log.Fatal("Set XAI_API_KEY environment variable")
 		}
-		provider = openai.New("https://api.x.ai/v1", key, "grok-3-mini")
+		xaiProvider = xai.New(key, xai.ModelGrok4FastNonReasoning)
+		provider = xaiProvider
 	case "xai-search":
 		key := os.Getenv("XAI_API_KEY")
 		if key == "" {
@@ -58,7 +65,7 @@ func main() {
 		xaiProvider = xai.New(key, xai.ModelGrok4FastNonReasoning, xai.WithWebSearch())
 		provider = xaiProvider
 	default:
-		log.Fatalf("Unknown provider: %s (use 'anthropic', 'xai', or 'xai-search')", *providerFlag)
+		log.Fatalf("Unknown provider: %s (use 'anthropic', 'openai', 'xai', or 'xai-search')", *providerFlag)
 	}
 
 	// Build the agent: provider, prompt, and runtime behavior live in Config.

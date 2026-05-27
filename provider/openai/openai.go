@@ -1,11 +1,10 @@
-// Package openai implements forge.Provider using the OpenAI-compatible chat
-// completions API. Works with OpenAI, xAI (Grok), Together, Groq, and any
-// other provider that speaks the OpenAI format.
+// Package openai implements forge.Provider using the OpenAI Responses API.
 package openai
 
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +13,7 @@ import (
 	"github.com/katasec/forge"
 )
 
-// Provider implements forge.Provider using the OpenAI-compatible API.
+// Provider implements forge.Provider using the OpenAI Responses API.
 type Provider struct {
 	baseURL string
 	apiKey  string
@@ -22,63 +21,91 @@ type Provider struct {
 	client  *http.Client
 }
 
-// New creates an OpenAI-compatible provider for the given base URL, API key, and model.
-func New(baseURL, apiKey, model string) *Provider {
-	return &Provider{
-		baseURL: baseURL,
+// New creates an OpenAI provider using the Responses API.
+func New(apiKey string, model Model, opts ...Option) *Provider {
+	p := &Provider{
+		baseURL: "https://api.openai.com/v1",
 		apiKey:  apiKey,
-		model:   model,
+		model:   string(model),
 		client:  &http.Client{},
+	}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
+}
+
+// Capabilities describes the OpenAI provider features Forge currently supports.
+func (p *Provider) Capabilities() forge.Capabilities {
+	return forge.Capabilities{
+		Images:     true,
+		Usage:      true,
+		Production: true,
 	}
 }
 
-// --- OpenAI API request/response types ---
+// --- OpenAI Responses API request/response types ---
 
 type request struct {
-	Model    string    `json:"model"`
-	Messages []message `json:"messages"`
+	Model        string      `json:"model"`
+	Input        []inputItem `json:"input"`
+	Instructions string      `json:"instructions,omitempty"`
 }
 
-type message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+type inputItem struct {
+	Role    string         `json:"role"`
+	Content []contentInput `json:"content"`
+}
+
+type contentInput struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	ImageURL string `json:"image_url,omitempty"`
 }
 
 type response struct {
-	Choices []choice `json:"choices"`
-	Usage   usage    `json:"usage"`
+	Output []outputItem `json:"output"`
+	Usage  usage        `json:"usage"`
 }
 
-type choice struct {
-	Message      message `json:"message"`
-	FinishReason string  `json:"finish_reason"`
+type outputItem struct {
+	Type    string          `json:"type"`
+	Role    string          `json:"role,omitempty"`
+	Content []contentOutput `json:"content,omitempty"`
+}
+
+type contentOutput struct {
+	Type string `json:"type"`
+	Text string `json:"text,omitempty"`
 }
 
 type usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
+	InputTokens         int                 `json:"input_tokens"`
+	InputTokensDetails  inputTokensDetails  `json:"input_tokens_details"`
+	OutputTokens        int                 `json:"output_tokens"`
+	OutputTokensDetails outputTokensDetails `json:"output_tokens_details"`
+	TotalTokens         int                 `json:"total_tokens"`
 }
 
-// Generate sends a request to the OpenAI-compatible chat completions endpoint.
+type inputTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+type outputTokensDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
+}
+
+// Generate sends a request to the OpenAI Responses API.
 func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*forge.ProviderResponse, error) {
-	// Convert forge messages to OpenAI format.
-	var msgs []message
-	if req.SystemPrompt != "" {
-		msgs = append(msgs, message{Role: "system", Content: req.SystemPrompt})
-	}
-	for _, m := range req.Messages {
-		if m.Role == forge.RoleSystem {
-			continue
-		}
-		msgs = append(msgs, message{
-			Role:    string(m.Role),
-			Content: m.Content,
-		})
+	input, err := convertMessages(req.Messages)
+	if err != nil {
+		return nil, err
 	}
 
 	body := request{
-		Model:    p.model,
-		Messages: msgs,
+		Model:        p.model,
+		Input:        input,
+		Instructions: req.SystemPrompt,
 	}
 
 	jsonBody, err := json.Marshal(body)
@@ -86,8 +113,7 @@ func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*fo
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/chat/completions", p.baseURL)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/responses", bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -106,7 +132,7 @@ func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*fo
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error (%d): %s", httpResp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("openai API error (%d): %s", httpResp.StatusCode, string(respBody))
 	}
 
 	var apiResp response
@@ -114,26 +140,114 @@ func (p *Provider) Generate(ctx context.Context, req forge.ProviderRequest) (*fo
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
-	if len(apiResp.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
-	}
-
-	ch := apiResp.Choices[0]
-
-	finishReason := forge.FinishReasonStop
-	if ch.FinishReason == "tool_calls" {
-		finishReason = forge.FinishReasonToolUse
+	messages := convertResponse(apiResp)
+	if len(messages) == 0 {
+		return nil, fmt.Errorf("no assistant messages in response")
 	}
 
 	return &forge.ProviderResponse{
-		Message: forge.Message{
-			Role:    forge.RoleAssistant,
-			Content: ch.Message.Content,
-		},
-		FinishReason: finishReason,
+		Messages:     messages,
+		FinishReason: forge.FinishReasonStop,
 		Usage: forge.TokenUsage{
-			InputTokens:  apiResp.Usage.PromptTokens,
-			OutputTokens: apiResp.Usage.CompletionTokens,
+			InputTokens:           apiResp.Usage.InputTokens,
+			CachedInputTokens:     apiResp.Usage.InputTokensDetails.CachedTokens,
+			OutputTokens:          apiResp.Usage.OutputTokens,
+			ReasoningOutputTokens: apiResp.Usage.OutputTokensDetails.ReasoningTokens,
+			TotalTokens:           apiResp.Usage.TotalTokens,
 		},
 	}, nil
+}
+
+func convertMessages(messages []forge.Message) ([]inputItem, error) {
+	items := make([]inputItem, 0, len(messages))
+	for _, msg := range messages {
+		if msg.Role == forge.RoleSystem {
+			continue
+		}
+
+		content, err := convertContent(msg.Role, msg.Content)
+		if err != nil {
+			return nil, err
+		}
+		if len(content) == 0 {
+			continue
+		}
+
+		items = append(items, inputItem{
+			Role:    string(msg.Role),
+			Content: content,
+		})
+	}
+	return items, nil
+}
+
+func convertContent(role forge.Role, blocks []forge.ContentBlock) ([]contentInput, error) {
+	content := make([]contentInput, 0, len(blocks))
+	for _, block := range blocks {
+		switch block.Type {
+		case forge.ContentTypeText:
+			contentType := "input_text"
+			if role == forge.RoleAssistant {
+				contentType = "output_text"
+			}
+			content = append(content, contentInput{Type: contentType, Text: block.Text})
+		case forge.ContentTypeImage:
+			if role != forge.RoleUser {
+				return nil, fmt.Errorf("openai image content is only supported for user messages")
+			}
+			if block.Image == nil {
+				return nil, fmt.Errorf("image content block missing image data")
+			}
+			imageURL, err := openAIImageURL(*block.Image)
+			if err != nil {
+				return nil, err
+			}
+			content = append(content, contentInput{Type: "input_image", ImageURL: imageURL})
+		case forge.ContentTypeToolCall, forge.ContentTypeToolResult:
+			return nil, fmt.Errorf("openai provider does not support tool content yet")
+		default:
+			return nil, fmt.Errorf("unsupported content block type: %s", block.Type)
+		}
+	}
+	return content, nil
+}
+
+func openAIImageURL(image forge.ImageContent) (string, error) {
+	if image.URL != "" {
+		return image.URL, nil
+	}
+	if len(image.Data) == 0 {
+		return "", fmt.Errorf("image content requires URL or data")
+	}
+	if image.MediaType == "" {
+		return "", fmt.Errorf("image bytes require media type")
+	}
+	encoded := base64.StdEncoding.EncodeToString(image.Data)
+	return fmt.Sprintf("data:%s;base64,%s", image.MediaType, encoded), nil
+}
+
+func convertResponse(apiResp response) []forge.Message {
+	var messages []forge.Message
+	for _, item := range apiResp.Output {
+		if item.Type != "message" {
+			continue
+		}
+
+		var blocks []forge.ContentBlock
+		for _, content := range item.Content {
+			if content.Type == "output_text" && content.Text != "" {
+				blocks = append(blocks, forge.Text(content.Text))
+			}
+		}
+		if len(blocks) == 0 {
+			continue
+		}
+
+		role := forge.RoleAssistant
+		if item.Role != "" {
+			role = forge.Role(item.Role)
+		}
+		messages = append(messages, forge.Message{Role: role, Content: blocks})
+	}
+	return messages
 }
