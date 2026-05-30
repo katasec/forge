@@ -233,6 +233,16 @@ type delta struct {
 
 // --- models endpoint ---
 
+// modelList is the standard OpenAI model-list shape.
+//
+// Note: Codex's GET /v1/models refresher ("codex_models_manager") expects a
+// proprietary, deeply-nested schema (top-level "models" array of objects with
+// slug/display_name/description/priority/deprecated and a
+// supported_reasoning_levels array of ReasoningEffortPreset structs). We do not
+// reproduce it: it is undocumented, nested, and purely cosmetic — Codex logs a
+// "failed to refresh available models" warning but the completion path works
+// regardless via the default-agent fallback. We serve the correct standard
+// shape and leave it at that.
 type modelList struct {
 	Object string      `json:"object"`
 	Data   []modelInfo `json:"data"`
